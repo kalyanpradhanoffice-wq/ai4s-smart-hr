@@ -4,7 +4,7 @@ import { useApp } from '@/lib/AppContext';
 import { useState } from 'react';
 import { can, getRoleMeta } from '@/lib/rbac';
 import { PERMISSIONS } from '@/lib/mockData';
-import { Plus, Search, Mail, Phone, Edit2, Key, Filter, UserPlus } from 'lucide-react';
+import { Plus, Search, Mail, Phone, Edit2, Key, Filter, UserPlus, Trash2 } from 'lucide-react';
 
 const DEPARTMENTS = ['Technical', 'Functional', 'Techno-Functional'];
 const DESIGNATIONS = [
@@ -32,7 +32,7 @@ const DESIGNATIONS = [
 const EMPLOYEE_TYPES = ['Trainee', 'Confirm'];
 
 function EmployeesContent() {
-    const { currentUser, users, customRoles, resetPassword, createUser, updateUser } = useApp();
+    const { currentUser, users, customRoles, resetPassword, createUser, updateUser, deactivateUser, deleteUser } = useApp();
     const [search, setSearch] = useState('');
     const [deptFilter, setDeptFilter] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
@@ -80,7 +80,7 @@ function EmployeesContent() {
         setTimeout(() => { setResetSuccess(false); setShowResetModal(null); setNewPassword(''); }, 1500);
     }
 
-    function handleAddEmployee(e) {
+    async function handleAddEmployee(e) {
         e.preventDefault();
         const { salaryBasic, salaryHra, ...rest } = newEmpForm;
 
@@ -101,15 +101,21 @@ function EmployeesContent() {
             }
         };
 
-        createUser(userData);
-        setShowAddModal(false);
-        setNewEmpForm({
-            name: '', email: '', password: '', role: 'employee',
-            department: 'Technical', designation: 'Developer Admin - Accounts', type: 'Confirm',
-            joinDate: new Date().toISOString().split('T')[0],
-            salaryBasic: '', salaryHra: '',
-            phone: '', location: '', dob: '', gender: '', pan: '', managerId: ''
-        });
+        const { success, error } = await createUser(userData);
+        
+        if (success) {
+            setShowAddModal(false);
+            setNewEmpForm({
+                name: '', email: '', password: '', role: 'employee',
+                department: 'Technical', designation: 'Developer Admin - Accounts', type: 'Confirm',
+                joinDate: new Date().toISOString().split('T')[0],
+                salaryBasic: '', salaryHra: '',
+                phone: '', location: '', dob: '', gender: '', pan: '', managerId: ''
+            });
+            alert("Employee created and registered successfully!");
+        } else {
+            alert("Error: " + error);
+        }
     }
 
     function handleEditClick(emp) {
@@ -218,10 +224,20 @@ function EmployeesContent() {
                                     {(canEdit || canResetPwd) && (
                                         <td>
                                             <div style={{ display: 'flex', gap: 6 }}>
-                                                {canEdit && <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px' }} onClick={() => handleEditClick(emp)}><Edit2 size={13} /></button>}
+                                                {canEdit && <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px' }} onClick={() => handleEditClick(emp)} title="Edit Employee"><Edit2 size={13} /></button>}
                                                 {canResetPwd && (
                                                     <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: '#fbbf24' }} onClick={() => setShowResetModal(emp)} title="Reset Password">
                                                         <Key size={13} />
+                                                    </button>
+                                                )}
+                                                {canEdit && emp.status === 'active' && (
+                                                    <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: '#f59e0b' }} onClick={() => { if(confirm(`Are you sure you want to retire ${emp.name}?`)) deactivateUser(emp.id); }} title="Retire Employee (Mark Inactive)">
+                                                        <UserPlus size={13} style={{ transform: 'rotate(45deg)' }} />
+                                                    </button>
+                                                )}
+                                                {currentUser?.role === 'super_admin' && (
+                                                    <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: '#ef4444' }} onClick={() => { if(confirm(`⚠️ WARNING: This will PERMANENTLY delete ${emp.name} and all their cloud data. \n\nAre you absolutely sure?`)) deleteUser(emp.id); }} title="HARD DELETE (Permanent)">
+                                                        <Trash2 size={13} />
                                                     </button>
                                                 )}
                                             </div>
