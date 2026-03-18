@@ -1,0 +1,71 @@
+'use client';
+import DashboardLayout from '@/components/DashboardLayout';
+import { useApp } from '@/lib/AppContext';
+import { useRouter } from 'next/navigation';
+import { ClipboardList, Calendar, DollarSign, User, ChevronRight } from 'lucide-react';
+
+function ApprovalsContent() {
+    const router = useRouter();
+    const { leaveRequests, loans, salaryUpgrades, users } = useApp();
+
+    const all = [
+        ...leaveRequests.filter(l => l.status === 'pending').map(l => ({ ...l, type: 'Leave', cat: 'leave', href: '/dashboard/leaves' })),
+        ...loans.filter(l => l.status === 'pending').map(l => ({ ...l, type: 'Loan', cat: 'loan', href: '/dashboard/loans' })),
+        ...salaryUpgrades.filter(s => s.status === 'pending').map(s => ({ ...s, type: 'Salary Upgrade', cat: 'salary', href: '/dashboard/payroll' })),
+    ];
+
+    const catIcons = { leave: Calendar, loan: DollarSign, salary: TrendingUp };
+    const catColors = { leave: '#06b6d4', loan: '#10b981', salary: '#8b5cf6' };
+
+    function TrendingUp(props) { return <DollarSign {...props} /> }
+
+    return (
+        <div className="animate-fade-in">
+            <div className="page-header">
+                <div><h1 className="page-title">Approval Inbox</h1><p className="page-subtitle">{all.length} items awaiting action</p></div>
+            </div>
+
+            {all.length === 0 ? (
+                <div className="card" style={{ textAlign: 'center', padding: 48 }}>
+                    <ClipboardList size={40} color="var(--text-muted)" style={{ marginBottom: 12 }} />
+                    <h3 style={{ color: 'var(--text-primary)', marginBottom: 8 }}>All Clear!</h3>
+                    <p style={{ color: 'var(--text-muted)' }}>No pending approvals at this time.</p>
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {all.map(item => {
+                        const emp = users.find(u => u.id === (item.employeeId || item.userId));
+                        const color = catColors[item.cat] || '#6366f1';
+                        return (
+                            <div key={item.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '16px 20px', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer', transition: 'all 0.15s' }}
+                                onClick={() => router.push(item.href)}
+                                onMouseOver={e => { e.currentTarget.style.borderColor = color; e.currentTarget.style.background = `${color}08`; }}
+                                onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.background = 'var(--bg-card)'; }}>
+                                <div style={{ width: 44, height: 44, borderRadius: 12, background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <ClipboardList size={20} color={color} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                        <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>{item.type}</span>
+                                        <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>L{item.currentLevel}</span>
+                                    </div>
+                                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                                        {emp?.name} • {item.reason || item.purpose || `₹${item.proposedSalary?.toLocaleString()}`}
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                    <span className="status-pill status-pending">Pending</span>
+                                    <ChevronRight size={16} color="var(--text-muted)" style={{ marginTop: 4 }} />
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+export default function ApprovalsPage() {
+    return <DashboardLayout title="Approvals"><ApprovalsContent /></DashboardLayout>;
+}

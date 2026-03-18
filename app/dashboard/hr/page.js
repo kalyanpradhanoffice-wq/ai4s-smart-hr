@@ -1,0 +1,149 @@
+'use client';
+import DashboardLayout from '@/components/DashboardLayout';
+import { useApp } from '@/lib/AppContext';
+import { useRouter } from 'next/navigation';
+import { Users, Clock, CheckCheck, AlertTriangle, TrendingUp, DollarSign, Activity, Shield, FileText, Star } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
+
+const payrollTrend = [
+    { month: 'Oct', amount: 620000 }, { month: 'Nov', amount: 635000 }, { month: 'Dec', amount: 680000 },
+    { month: 'Jan', amount: 670000 }, { month: 'Feb', amount: 695000 }, { month: 'Mar', amount: 710000 },
+];
+const attendanceTrend = [
+    { day: 'Mon', present: 7, absent: 1 }, { day: 'Tue', present: 8, absent: 0 }, { day: 'Wed', present: 6, absent: 2 },
+    { day: 'Thu', present: 8, absent: 0 }, { day: 'Fri', present: 7, absent: 1 },
+];
+
+function HRContent() {
+    const router = useRouter();
+    const { users, leaveRequests, payroll, notifications } = useApp();
+
+    const pending = leaveRequests.filter(l => l.status === 'pending').length;
+    const approved = leaveRequests.filter(l => l.status === 'approved').length;
+    const totalPayroll = payroll.reduce((s, p) => s + p.netPay, 0);
+    const onLeave = leaveRequests.filter(l => l.status === 'approved' && new Date(l.from) <= new Date() && new Date(l.to) >= new Date()).length;
+
+    const complianceItems = [
+        { label: 'EPF Filing', status: 'green', due: 'Mar 15, 2025' },
+        { label: 'ESI Challan', status: 'green', due: 'Mar 15, 2025' },
+        { label: 'TDS Deposit', status: 'orange', due: 'Mar 7, 2025' },
+        { label: 'Professional Tax', status: 'green', due: 'Mar 31, 2025' },
+        { label: 'Labour Welfare Fund', status: 'green', due: 'Mar 31, 2025' },
+    ];
+
+    return (
+        <div className="animate-fade-in">
+            <div className="page-header">
+                <div>
+                    <h1 className="page-title">HR Admin Dashboard</h1>
+                    <p className="page-subtitle">Workforce overview & compliance health</p>
+                </div>
+                <button className="btn btn-primary" onClick={() => router.push('/dashboard/payroll')}>
+                    <DollarSign size={16} /> Run Payroll
+                </button>
+            </div>
+
+            {/* Stats row */}
+            <div className="grid-4" style={{ marginBottom: 28 }}>
+                {[
+                    { label: 'Total Employees', value: users.length, icon: Users, color: '#6366f1', sub: 'All departments', href: '/dashboard/employees' },
+                    { label: 'On Leave Today', value: onLeave, icon: Clock, color: '#f59e0b', sub: 'Approved leaves', href: '/dashboard/leaves' },
+                    { label: 'Pending Approvals', value: pending, icon: AlertTriangle, color: '#ef4444', sub: 'Require action', href: '/dashboard/approvals' },
+                    { label: 'Payroll (Feb)', value: `₹${(totalPayroll / 1000).toFixed(0)}K`, icon: DollarSign, color: '#10b981', sub: 'Net disbursed', href: '/dashboard/payroll' },
+                ].map(s => (
+                    <div key={s.label} className="stat-card"
+                        onClick={() => router.push(s.href)}
+                        style={{ cursor: 'pointer', transition: 'transform 0.15s, box-shadow 0.15s' }}
+                        onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 8px 24px ${s.color}20`; }}
+                        onMouseOut={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>{s.label}</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 800, fontFamily: 'var(--font-display)', color: s.color, marginTop: 8 }}>{s.value}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>{s.sub}</div>
+                            </div>
+                            <div style={{ width: 42, height: 42, borderRadius: 12, background: `${s.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <s.icon size={20} color={s.color} />
+                            </div>
+                        </div>
+                        <div style={{ marginTop: 8, fontSize: '0.7rem', color: s.color, fontWeight: 600 }}>Click to view →</div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="grid-2" style={{ marginBottom: 28 }}>
+                {/* Payroll Trend */}
+                <div className="card">
+                    <div style={{ marginBottom: 16 }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 4 }}>Payroll Trend</h3>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Net salary disbursed monthly (₹)</p>
+                    </div>
+                    <ResponsiveContainer width="100%" height={200}>
+                        <AreaChart data={payrollTrend}>
+                            <defs>
+                                <linearGradient id="payGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} tickFormatter={v => `${v / 1000}K`} />
+                            <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 8 }} formatter={v => [`₹${v.toLocaleString()}`, 'Net Pay']} />
+                            <Area type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={2} fill="url(#payGrad)" />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+
+                {/* Compliance Health */}
+                <div className="card">
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 16 }}>Compliance Health</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {complianceItems.map(c => (
+                            <div key={c.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-glass)', border: '1px solid var(--border-subtle)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: c.status === 'green' ? '#10b981' : '#f59e0b', flexShrink: 0 }} />
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>{c.label}</span>
+                                </div>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Due: {c.due}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Leave Requests */}
+            <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Recent Leave Requests</h3>
+                    <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard/leaves')}>View All →</button>
+                </div>
+                <div className="table-wrapper" style={{ border: 'none', boxShadow: 'none' }}>
+                    <table className="data-table">
+                        <thead><tr><th>Employee</th><th>Type</th><th>Duration</th><th>Reason</th><th>Status</th></tr></thead>
+                        <tbody>
+                            {leaveRequests.map(lr => {
+                                const emp = users.find(u => u.id === lr.employeeId);
+                                return (
+                                    <tr key={lr.id}>
+                                        <td style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <div className="avatar avatar-sm">{emp?.avatar}</div>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>{emp?.name}</div>
+                                        </td>
+                                        <td><span className="badge badge-primary">{lr.type}</span></td>
+                                        <td style={{ fontSize: '0.82rem' }}>{lr.from} → {lr.to} <span style={{ color: 'var(--text-muted)' }}>({lr.days}d)</span></td>
+                                        <td style={{ fontSize: '0.8rem', maxWidth: 200 }}>{lr.reason}</td>
+                                        <td><span className={`status-pill status-${lr.status}`}>{lr.status}</span></td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default function HRPage() {
+    return <DashboardLayout title="HR Admin Dashboard"><HRContent /></DashboardLayout>;
+}
