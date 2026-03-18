@@ -47,9 +47,9 @@ function LoginPage() {
         setLoading(true);
 
         if (isRegister) {
-            const result = await signUp(email, password, { 
-                name, 
-                designation, 
+            const result = await signUp(email, password, {
+                name,
+                designation,
                 role: 'super_admin', // First user is super admin for convenience
                 employee_id: `EMP${Date.now().toString().slice(-4)}`
             });
@@ -194,11 +194,7 @@ function LoginPage() {
                             </button>
                         </form>
 
-                        <div style={{ textAlign: 'center', marginTop: 16 }}>
-                            <button onClick={() => setIsRegister(!isRegister)} style={{ background: 'none', border: 'none', color: 'var(--brand-primary-light)', cursor: 'pointer', fontSize: '0.85rem' }}>
-                                {isRegister ? 'Already have an account? Sign In' : 'Need an enterprise account? Register here'}
-                            </button>
-                        </div>
+                        {/* Registration link removed for security */}
 
                         <p style={{ textAlign: 'center', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 16 }}>
                             <Shield size={11} style={{ display: 'inline', marginRight: 4 }} />
