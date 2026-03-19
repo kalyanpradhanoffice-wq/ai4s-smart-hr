@@ -54,7 +54,8 @@ function AttendanceContent() {
     const today = new Date().toISOString().split('T')[0];
     const todayRecord = myAttendance.find(a => a.date === today);
 
-    const thisMonth = myAttendance.filter(a => a.date.startsWith('2025-03'));
+    const thisMonthStr = new Date().toISOString().slice(0, 7); // e.g. "2026-03"
+    const thisMonth = myAttendance.filter(a => a.date.startsWith(thisMonthStr));
     const presentDays = thisMonth.filter(a => a.status === 'present' || a.status === 'regularized' || a.status === 'wfh').length;
     const absentDays = thisMonth.filter(a => a.status === 'absent').length;
     const leaveDays = thisMonth.filter(a => a.status === 'leave').length;
