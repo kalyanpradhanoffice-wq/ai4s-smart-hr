@@ -1,6 +1,12 @@
 -- AI4S Smart HR - Supplementary Schema
 -- Run this in your Supabase SQL Editor to enable full data persistence
 
+-- 0. Fixes for Profiles Table (Run if you see "Could not find column" errors)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_color TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_onboarded BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS salary_basic NUMERIC DEFAULT 0;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS salary_hra NUMERIC DEFAULT 0;
+
 -- Leave Balances
 CREATE TABLE IF NOT EXISTS public.leave_balances (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
