@@ -44,6 +44,12 @@ function AttendanceContent() {
     const [hrForm, setHRForm] = useState({ userId: '', date: '', status: 'present', punchIn: '', punchOut: '', leaveType: 'CL', halfDayType: '', location: 'office' });
 
     const canManageAttendance = can(currentUser, PERMISSIONS.VIEW_ALL_ATTENDANCE) || can(currentUser, PERMISSIONS.APPROVE_REGULARIZATION);
+    const isManager = currentUser?.role === 'manager';
+    const canViewAll = can(currentUser, PERMISSIONS.VIEW_ALL_ATTENDANCE);
+
+    // Filter by hierarchy for managers
+    const teamUserIds = users.filter(u => u.reportingTo === currentUser?.id).map(u => u.id);
+
     const myAttendance = attendance.filter(a => a.userId === currentUser?.id);
     const today = new Date().toISOString().split('T')[0];
     const todayRecord = myAttendance.find(a => a.date === today);
@@ -279,7 +285,11 @@ function AttendanceContent() {
                         <table className="data-table">
                             <thead><tr><th>Employee</th><th>Date</th><th>Status</th><th>Punch In</th><th>Punch Out</th><th>Hours</th><th>Corrected By</th></tr></thead>
                             <tbody>
-                                {attendance.slice().reverse().slice(0, 30).map(a => {
+                                {attendance.slice().reverse().filter(a => {
+                                    if (canViewAll) return true;
+                                    if (isManager) return teamUserIds.includes(a.userId);
+                                    return a.userId === currentUser?.id;
+                                }).slice(0, 50).map(a => {
                                     const emp = users.find(u => u.id === a.userId);
                                     const hours = a.punchIn && a.punchOut ? (() => {
                                         const [ih, im] = a.punchIn.split(':').map(Number);
@@ -318,10 +328,18 @@ function AttendanceContent() {
                         <table className="data-table">
                             <thead><tr><th>Employee</th><th>Date</th><th>Correction Type</th><th>Reason</th><th>Status</th></tr></thead>
                             <tbody>
-                                {regularizations.length === 0 && (
+                                {regularizations.filter(r => {
+                                    if (canViewAll) return true;
+                                    if (isManager) return teamUserIds.includes(r.employeeId);
+                                    return r.employeeId === currentUser?.id;
+                                }).length === 0 && (
                                     <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No correction requests found.</td></tr>
                                 )}
-                                {regularizations.map(r => {
+                                {regularizations.filter(r => {
+                                    if (canViewAll) return true;
+                                    if (isManager) return teamUserIds.includes(r.employeeId);
+                                    return r.employeeId === currentUser?.id;
+                                }).map(r => {
                                     const emp = users.find(u => u.id === r.employeeId);
                                     return (
                                         <tr key={r.id}>
@@ -395,7 +413,7 @@ function AttendanceContent() {
                                 <label className="form-label">Select Employee *</label>
                                 <select className="form-select" value={hrForm.userId} onChange={e => setHRForm(f => ({ ...f, userId: e.target.value }))} required>
                                     <option value="">Select employee...</option>
-                                    {users.map(u => <option key={u.id} value={u.id}>{u.name} — {u.employeeId}</option>)}
+                                    {users.filter(u => canViewAll || teamUserIds.includes(u.id)).map(u => <option key={u.id} value={u.id}>{u.name} — {u.employeeId}</option>)}
                                 </select>
                             </div>
                             <div className="form-group">

@@ -8,19 +8,34 @@ import { PERMISSIONS } from '@/lib/mockData';
 import { Plus, Calendar, Info, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 function LeavesContent() {
-    const { currentUser, users, leaveRequests, leaveBalances, applyLeave, approveLeave, rejectLeave } = useApp();
+    const { currentUser, users, leaveRequests, leaveBalances, applyLeave, approveLeave, rejectLeave, adjustLeaveBalance, customRoles } = useApp();
     const [showForm, setShowForm] = useState(false);
+    const [showAdjust, setShowAdjust] = useState(false);
     const [activeTab, setActiveTab] = useState('my');
     const [form, setForm] = useState({ type: 'CL', from: '', to: '', reason: '' });
+    const [adjustForm, setAdjustForm] = useState({ userId: '', type: 'CL', amount: '', reason: '' });
     const [sandwichInfo, setSandwichInfo] = useState(0);
 
-    const canApprove = can(currentUser, PERMISSIONS.APPROVE_LEAVE);
-    const canViewAll = can(currentUser, PERMISSIONS.VIEW_ALL_LEAVES);
+    const canApprove = can(currentUser, PERMISSIONS.APPROVE_LEAVE, customRoles);
+    const canViewAll = can(currentUser, PERMISSIONS.VIEW_ALL_LEAVES, customRoles);
+    const canManagePolicy = can(currentUser, PERMISSIONS.MANAGE_LEAVE_POLICY, customRoles);
 
+    const isManager = currentUser?.role === 'manager';
     const myBalance = leaveBalances.find(b => b.userId === currentUser?.id);
+    
+    // Filter by hierarchy for managers
+    const teamUserIds = users.filter(u => u.reportingTo === currentUser?.id).map(u => u.id);
+    
     const myLeaves = leaveRequests.filter(l => l.employeeId === currentUser?.id);
-    const allLeaves = canViewAll ? leaveRequests : myLeaves;
-    const pendingLeaves = leaveRequests.filter(l => l.status === 'pending');
+    
+    let allLeaves = leaveRequests;
+    if (isManager && !canViewAll) {
+        allLeaves = leaveRequests.filter(l => teamUserIds.includes(l.employeeId));
+    } else if (!canViewAll) {
+        allLeaves = myLeaves;
+    }
+
+    const pendingLeaves = allLeaves.filter(l => l.status === 'pending');
 
     function calcDays(from, to) {
         if (!from || !to) return 0;
@@ -55,6 +70,13 @@ function LeavesContent() {
 
     function getEmpName(id) { return users.find(u => u.id === id)?.name || id; }
 
+    function handleAdjustSubmit(e) {
+        e.preventDefault();
+        adjustLeaveBalance(adjustForm.userId, adjustForm.type, Number(adjustForm.amount), adjustForm.reason);
+        setShowAdjust(false);
+        setAdjustForm({ userId: '', type: 'CL', amount: '', reason: '' });
+    }
+
     const displayLeaves = activeTab === 'my' ? myLeaves : activeTab === 'pending' ? pendingLeaves : allLeaves;
 
     return (
@@ -64,7 +86,10 @@ function LeavesContent() {
                     <h1 className="page-title">Leave Management</h1>
                     <p className="page-subtitle">Apply, track, and approve leaves</p>
                 </div>
-                <button className="btn btn-primary" onClick={() => setShowForm(true)}><Plus size={16} /> Apply Leave</button>
+                <div style={{ display: 'flex', gap: 10 }}>
+                    {canManagePolicy && <button className="btn btn-secondary" onClick={() => setShowAdjust(true)}><Calendar size={16} /> Adjust Balances</button>}
+                    <button className="btn btn-primary" onClick={() => setShowForm(true)}><Plus size={16} /> Apply Leave</button>
+                </div>
             </div>
 
             {/* Leave Balance Cards */}
@@ -168,6 +193,46 @@ function LeavesContent() {
                             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
                                 <button type="submit" className="btn btn-primary">Submit Request</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Adjust Balance Modal */}
+            {showAdjust && (
+                <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowAdjust(false)}>
+                    <div className="modal-box">
+                        <h3 style={{ marginBottom: 20, fontFamily: 'var(--font-display)' }}>Adjust Leave Balance</h3>
+                        <form onSubmit={handleAdjustSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div className="form-group">
+                                <label className="form-label">Select Employee</label>
+                                <select className="form-select" value={adjustForm.userId} onChange={e => setAdjustForm(f => ({ ...f, userId: e.target.value }))} required>
+                                    <option value="">Choose an employee...</option>
+                                    {users.filter(u => u.id !== currentUser.id).map(u => (
+                                        <option key={u.id} value={u.id}>{u.name} ({u.employeeId})</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div className="form-group">
+                                    <label className="form-label">Leave Type</label>
+                                    <select className="form-select" value={adjustForm.type} onChange={e => setAdjustForm(f => ({ ...f, type: e.target.value }))}>
+                                        {LEAVE_TYPES.map(lt => <option key={lt.id} value={lt.id}>{lt.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Adjustment (+/-)</label>
+                                    <input type="number" className="form-input" placeholder="e.g. 5 or -2" value={adjustForm.amount} onChange={e => setAdjustForm(f => ({ ...f, amount: e.target.value }))} required />
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Reason for Adjustment</label>
+                                <textarea className="form-textarea" placeholder="e.g. Anniversary credit, correction of error..." value={adjustForm.reason} onChange={e => setAdjustForm(f => ({ ...f, reason: e.target.value }))} required />
+                            </div>
+                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowAdjust(false)}>Cancel</button>
+                                <button type="submit" className="btn btn-primary">Update Balance</button>
                             </div>
                         </form>
                     </div>

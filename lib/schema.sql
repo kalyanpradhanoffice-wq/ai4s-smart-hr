@@ -1,9 +1,11 @@
 -- AI4S Smart HR - Supplementary Schema
 -- Run this in your Supabase SQL Editor to enable full data persistence
 
--- 0. Comprehensive Fixes for Profiles Table
--- Run this to ensure all required employee fields exist
+-- 0. Final Comprehensive Fixes for Profiles Table
+-- Run this if you continue to see "Could not find column" errors
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS employee_id TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'Confirm';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS join_date DATE DEFAULT CURRENT_DATE;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS location TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS dob DATE;
