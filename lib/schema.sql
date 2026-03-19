@@ -2,7 +2,6 @@
 -- Run this in your Supabase SQL Editor to enable full data persistence
 
 -- 0. Final Comprehensive Fixes for Profiles Table
--- Run this if you continue to see "Could not find column" errors
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS employee_id TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'Confirm';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS join_date DATE DEFAULT CURRENT_DATE;
@@ -18,7 +17,22 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_color TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_onboarded BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS onboarding_status JSONB DEFAULT '{}'::jsonb;
 
--- Leave Balances
+-- 1. Leaves
+CREATE TABLE IF NOT EXISTS public.leaves (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    employee_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    days NUMERIC NOT NULL,
+    reason TEXT,
+    status TEXT DEFAULT 'pending',
+    current_level INTEGER DEFAULT 1,
+    approvals JSONB DEFAULT '[]'::jsonb,
+    applied_on TIMESTAMPTZ DEFAULT now()
+);
+
+-- 2. Leave Balances
 CREATE TABLE IF NOT EXISTS public.leave_balances (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -30,7 +44,24 @@ CREATE TABLE IF NOT EXISTS public.leave_balances (
     last_updated TIMESTAMPTZ DEFAULT now()
 );
 
--- Regularization Requests
+-- 3. Attendance
+CREATE TABLE IF NOT EXISTS public.attendance (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    status TEXT DEFAULT 'present',
+    punch_in TEXT,
+    punch_out TEXT,
+    clock_in TEXT, -- Migration support
+    clock_out TEXT, -- Migration support
+    location TEXT DEFAULT 'office',
+    hr_corrected BOOLEAN DEFAULT false,
+    half_day_type TEXT,
+    regularized BOOLEAN DEFAULT false,
+    UNIQUE(user_id, date)
+);
+
+-- 4. Regularization Requests
 CREATE TABLE IF NOT EXISTS public.regularizations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -43,19 +74,49 @@ CREATE TABLE IF NOT EXISTS public.regularizations (
     comments TEXT
 );
 
--- Loans
-CREATE TABLE IF NOT EXISTS public.loans (
+-- 5. Payroll
+CREATE TABLE IF NOT EXISTS public.payroll (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-    amount NUMERIC NOT NULL,
-    reason TEXT,
-    status TEXT DEFAULT 'pending',
-    requested_on DATE DEFAULT CURRENT_DATE,
-    current_level INTEGER DEFAULT 1,
-    approvals JSONB DEFAULT '[]'::jsonb
+    month TEXT NOT NULL, -- e.g. "February 2025"
+    gross_salary NUMERIC NOT NULL,
+    net_pay NUMERIC NOT NULL,
+    deductions JSONB DEFAULT '{}'::jsonb,
+    earnings JSONB DEFAULT '{}'::jsonb,
+    status TEXT DEFAULT 'processed',
+    processed_on TIMESTAMPTZ DEFAULT now(),
+    reference_id TEXT UNIQUE
 );
 
--- Notifications
+-- 6. OKRs
+CREATE TABLE IF NOT EXISTS public.okrs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    objective TEXT NOT NULL,
+    quarter TEXT NOT NULL,
+    overall_progress INTEGER DEFAULT 0,
+    key_results JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 7. Activity History
+CREATE TABLE IF NOT EXISTS public.activity_history (
+    id TEXT PRIMARY KEY,
+    timestamp TIMESTAMPTZ DEFAULT now(),
+    module TEXT,
+    action TEXT,
+    action_code TEXT,
+    performed_by_id UUID REFERENCES public.profiles(id),
+    performed_by_name TEXT,
+    target_employee_id UUID REFERENCES public.profiles(id),
+    target_employee_name TEXT,
+    description TEXT,
+    previous_value TEXT,
+    new_value TEXT,
+    reference_id TEXT
+);
+
+-- 8. Notifications
 CREATE TABLE IF NOT EXISTS public.notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -67,7 +128,19 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Interviews
+-- 9. Loans
+CREATE TABLE IF NOT EXISTS public.loans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    employee_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    amount NUMERIC NOT NULL,
+    reason TEXT,
+    status TEXT DEFAULT 'pending',
+    requested_on DATE DEFAULT CURRENT_DATE,
+    current_level INTEGER DEFAULT 1,
+    approvals JSONB DEFAULT '[]'::jsonb
+);
+
+-- 10. Interviews
 CREATE TABLE IF NOT EXISTS public.interviews (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     candidate_name TEXT,
@@ -80,7 +153,7 @@ CREATE TABLE IF NOT EXISTS public.interviews (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Kudos
+-- 11. Kudos
 CREATE TABLE IF NOT EXISTS public.kudos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     from_id UUID REFERENCES public.profiles(id),
@@ -90,7 +163,7 @@ CREATE TABLE IF NOT EXISTS public.kudos (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Feedback (360 Degree)
+-- 12. Feedback (360 Degree)
 CREATE TABLE IF NOT EXISTS public.feedback (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     from_id UUID REFERENCES public.profiles(id),
@@ -100,7 +173,7 @@ CREATE TABLE IF NOT EXISTS public.feedback (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Salary Upgrades
+-- 13. Salary Upgrades
 CREATE TABLE IF NOT EXISTS public.salary_upgrades (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -113,13 +186,13 @@ CREATE TABLE IF NOT EXISTS public.salary_upgrades (
     requested_on TIMESTAMPTZ DEFAULT now()
 );
 
--- Security Config
+-- 14. Security Config
 CREATE TABLE IF NOT EXISTS public.security_config (
     id TEXT PRIMARY KEY DEFAULT 'system_config',
     config JSONB NOT NULL
 );
 
--- Custom Roles
+-- 15. Custom Roles
 CREATE TABLE IF NOT EXISTS public.custom_roles (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -128,7 +201,3 @@ CREATE TABLE IF NOT EXISTS public.custom_roles (
     color TEXT,
     is_system_role BOOLEAN DEFAULT false
 );
-
--- Optional: Enable RLS for all newly created tables if needed
--- ALTER TABLE public.leave_balances ENABLE ROW LEVEL SECURITY;
--- ... (You can add RLS policies here or in the Supabase Dashboard)

@@ -8,7 +8,7 @@ import { PERMISSIONS } from '@/lib/mockData';
 import { Download, TrendingUp, Info, CheckCircle, FileSpreadsheet, History } from 'lucide-react';
 
 function PayrollContent() {
-    const { currentUser, users, payroll, addAuditEntry, attendance, activityHistory, logActivity } = useApp();
+    const { currentUser, users, payroll, addAuditEntry, attendance, activityHistory, logActivity, processPayroll } = useApp();
     const [selectedUser, setSelectedUser] = useState(currentUser?.id);
     const [regime, setRegime] = useState('new');
     const [voluntaryEPF, setVoluntaryEPF] = useState(false);
@@ -167,6 +167,29 @@ function PayrollContent() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Payroll Feb 2025');
         XLSX.writeFile(wb, 'AI4S_Payroll_Feb_2025.xlsx');
+
+        // Persist to Supabase
+        const payrollBatch = data.map(record => ({
+            employee_id: users.find(u => u.employeeId === record['Employee ID'])?.id,
+            month: 'February 2025',
+            gross_salary: record['Gross Salary (Rs)'],
+            net_pay: record['Net Pay (Rs)'],
+            deductions: {
+                epf: record['EPF Employee (Rs)'],
+                esi: record['ESI Employee (Rs)'],
+                pt: record['Professional Tax (Rs)'],
+                total: record['Total Deductions (Rs)']
+            },
+            earnings: {
+                basic: record['Basic Salary (Rs)'],
+                hra: record['HRA (Rs)'],
+                allowances: record['Allowances (Rs)']
+            },
+            status: 'processed',
+            reference_id: `PAY_FEB2025_${record['Employee ID']}`
+        }));
+
+        await processPayroll(payrollBatch);
         addAuditEntry(currentUser?.id, 'PAYROLL_PROCESSED', 'all', 'Processed payroll and downloaded Excel summary');
         logActivity({ module: 'Payroll', action: 'Payroll Processed', actionCode: 'PAYROLL_PROCESSED', performedById: currentUser?.id, performedByName: currentUser?.name, targetEmployeeName: 'All Employees', description: `Monthly payroll processed for February 2025 — ${users.length} employees`, referenceId: 'PAYROLL_FEB2025' });
     }

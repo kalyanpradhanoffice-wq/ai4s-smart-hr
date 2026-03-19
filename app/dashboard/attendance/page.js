@@ -29,7 +29,7 @@ const HALF_DAY_OPTIONS = [
 const LEAVE_TYPES = ['CL', 'EL', 'SL', 'LOP', 'OD'];
 
 function AttendanceContent() {
-    const { currentUser, users, attendance, regularizations, requestRegularization, setAttendance, hrCorrectAttendance, leaveBalances, activityHistory } = useApp();
+    const { currentUser, users, attendance, regularizations, requestRegularization, markAttendance, hrCorrectAttendance, leaveBalances, activityHistory } = useApp();
     const [activeTab, setActiveTab] = useState('my');
     const [showRegModal, setShowRegModal] = useState(false);
     const [regForm, setRegForm] = useState({ date: '', correctionType: 'missing_in', reason: '' });
@@ -65,17 +65,14 @@ function AttendanceContent() {
     function handlePunchIn() {
         const now = new Date();
         const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        const existing = attendance.find(a => a.userId === currentUser?.id && a.date === today);
-        if (!existing) {
-            setAttendance(prev => [...prev, { id: `ATT${Date.now()}`, userId: currentUser.id, date: today, status: 'present', punchIn: timeStr, punchOut: null, location: 'office' }]);
-        }
+        markAttendance(currentUser.id, today, 'in', timeStr, 'office');
         setPunchStatus('in');
     }
 
     function handlePunchOut() {
         const now = new Date();
         const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        setAttendance(prev => prev.map(a => a.userId === currentUser?.id && a.date === today ? { ...a, punchOut: timeStr } : a));
+        markAttendance(currentUser.id, today, 'out', timeStr, null);
         setPunchStatus('out-done');
     }
 
