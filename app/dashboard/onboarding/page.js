@@ -5,8 +5,10 @@ import { useState } from 'react';
 import { ONBOARDING_DOCUMENTS, calculateGratuity, OFFBOARDING_CLEARANCES } from '@/lib/mockData';
 import { UserPlus, UserMinus, CheckCircle, Circle, AlertCircle, FileText, Award, CheckCheck } from 'lucide-react';
 
+import { useEffect } from 'react';
+
 export function OnboardingContent({ defaultActiveView = 'onboarding' }) {
-    const { users } = useApp();
+    const { users, updateOnboardingKYC, finalizeOnboarding } = useApp();
     const [activeView, setActiveView] = useState(defaultActiveView);
     const [selectedEmp, setSelectedEmp] = useState('');
     const [docs, setDocs] = useState(Object.fromEntries(ONBOARDING_DOCUMENTS.map(d => [d.id, false])));
@@ -14,12 +16,36 @@ export function OnboardingContent({ defaultActiveView = 'onboarding' }) {
     const [offEmp, setOffEmp] = useState('');
 
     const emp = users.find(u => u.id === selectedEmp);
+
+    useEffect(() => {
+        if (emp && emp.onboarding_status) {
+            setDocs(d => ({ ...d, ...emp.onboarding_status }));
+        } else {
+            setDocs(Object.fromEntries(ONBOARDING_DOCUMENTS.map(d => [d.id, false])));
+        }
+    }, [emp]);
+
     const allRequired = ONBOARDING_DOCUMENTS.filter(d => d.required).every(d => docs[d.id]);
     const empIdGenerated = allRequired;
 
     const offboardEmp = users.find(u => u.id === offEmp);
     const gratuity = offboardEmp ? calculateGratuity(offboardEmp.salary?.basic || 0, offboardEmp.joinDate) : null;
     const allClearancesGreen = Object.values(clearances).every(Boolean);
+
+    const handleDocChange = async (docId, checked) => {
+        const newDocs = { ...docs, [docId]: checked };
+        setDocs(newDocs);
+        if (selectedEmp) {
+            await updateOnboardingKYC(selectedEmp, newDocs);
+        }
+    };
+
+    const handleFinalize = async () => {
+        if (selectedEmp) {
+            await finalizeOnboarding(selectedEmp);
+            alert('Employee onboarding finalized. Status updated to Active.');
+        }
+    };
 
     return (
         <div className="animate-fade-in">
@@ -66,7 +92,7 @@ export function OnboardingContent({ defaultActiveView = 'onboarding' }) {
                                     {ONBOARDING_DOCUMENTS.map(doc => (
                                         <label key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 'var(--radius-md)', border: `1px solid ${docs[doc.id] ? 'rgba(16,185,129,0.3)' : 'var(--border-subtle)'}`, background: docs[doc.id] ? 'rgba(16,185,129,0.05)' : 'transparent', cursor: 'pointer', transition: 'all 0.15s' }}>
                                             {docs[doc.id] ? <CheckCircle size={18} color="#34d399" /> : <Circle size={18} color="var(--text-muted)" />}
-                                            <input type="checkbox" hidden checked={docs[doc.id]} onChange={e => setDocs(d => ({ ...d, [doc.id]: e.target.checked }))} />
+                                            <input type="checkbox" hidden checked={docs[doc.id]} onChange={e => handleDocChange(doc.id, e.target.checked)} />
                                             <div>
                                                 <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{doc.name}</span>
                                                 {doc.required && <span style={{ color: '#f87171', marginLeft: 4, fontSize: '0.8rem' }}>*</span>}
@@ -77,7 +103,7 @@ export function OnboardingContent({ defaultActiveView = 'onboarding' }) {
                                 </div>
 
                                 <div style={{ marginTop: 20, display: 'flex', gap: 10 }}>
-                                    <button className="btn btn-primary" disabled={!empIdGenerated} style={{ justifyContent: 'center', flex: 1 }}>
+                                    <button className="btn btn-primary" disabled={!empIdGenerated} onClick={handleFinalize} style={{ justifyContent: 'center', flex: 1 }}>
                                         {empIdGenerated ? <><CheckCheck size={15} /> Finalize Onboarding</> : <>Complete KYC First</>}
                                     </button>
                                 </div>

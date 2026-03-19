@@ -33,8 +33,8 @@ export async function POST(req) {
       .from('profiles')
       .insert([
         {
-          id: employee_id,
-          auth_user_id: authUser.user.id,
+          id: authUser.user.id,
+          employee_id: employee_id,
           name,
           email,
           designation,

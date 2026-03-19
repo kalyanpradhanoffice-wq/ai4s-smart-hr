@@ -9,7 +9,7 @@ import { PERMISSIONS } from '@/lib/mockData';
 const CATEGORIES = ['communication', 'leadership', 'technical', 'collaboration'];
 
 function FeedbackContent() {
-    const { currentUser, users, feedback, setFeedback, customRoles } = useApp();
+    const { currentUser, users, feedback, submitFeedback, customRoles } = useApp();
     const [activeTab, setActiveTab] = useState('give');
     const [reviewee, setReviewee] = useState('');
     const [ratings, setRatings] = useState({ communication: 0, leadership: 0, technical: 0, collaboration: 0 });
@@ -24,10 +24,9 @@ function FeedbackContent() {
         setRatings(r => ({ ...r, [cat]: val }));
     }
 
-    function handleSubmit(e) {
+    async function handleSubmit(e) {
         e.preventDefault();
-        const newFB = {
-            id: `FB${Date.now()}`,
+        const fbData = {
             revieweeId: reviewee,
             reviewerId: currentUser.id,
             reviewerRole: currentUser.role,
@@ -37,12 +36,14 @@ function FeedbackContent() {
             submittedOn: new Date().toISOString().split('T')[0],
             isAnonymous: false,
         };
-        setFeedback(prev => [...prev, newFB]);
-        setSubmitted(true);
-        setTimeout(() => setSubmitted(false), 2000);
-        setReviewee('');
-        setRatings({ communication: 0, leadership: 0, technical: 0, collaboration: 0 });
-        setComments('');
+        const success = await submitFeedback(fbData);
+        if (success) {
+            setSubmitted(true);
+            setTimeout(() => setSubmitted(false), 2000);
+            setReviewee('');
+            setRatings({ communication: 0, leadership: 0, technical: 0, collaboration: 0 });
+            setComments('');
+        }
     }
 
     function StarRating({ cat, val, onChange }) {
