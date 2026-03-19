@@ -1,11 +1,20 @@
 -- AI4S Smart HR - Supplementary Schema
 -- Run this in your Supabase SQL Editor to enable full data persistence
 
--- 0. Fixes for Profiles Table (Run if you see "Could not find column" errors)
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_color TEXT;
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_onboarded BOOLEAN DEFAULT FALSE;
+-- 0. Comprehensive Fixes for Profiles Table
+-- Run this to ensure all required employee fields exist
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'Confirm';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS location TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS dob DATE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS gender TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS pan TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS manager_id UUID REFERENCES public.profiles(id);
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS salary_basic NUMERIC DEFAULT 0;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS salary_hra NUMERIC DEFAULT 0;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_color TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_onboarded BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS onboarding_status JSONB DEFAULT '{}'::jsonb;
 
 -- Leave Balances
 CREATE TABLE IF NOT EXISTS public.leave_balances (
