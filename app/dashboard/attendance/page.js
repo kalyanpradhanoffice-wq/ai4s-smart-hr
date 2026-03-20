@@ -4,7 +4,7 @@ import { useApp } from '@/lib/AppContext';
 import { useState } from 'react';
 import { can } from '@/lib/rbac';
 import { PERMISSIONS } from '@/lib/mockData';
-import { Clock, MapPin, CheckCircle, AlertCircle, Plus, Edit, Shield, ChevronDown, History, Search, Info, Calendar } from 'lucide-react';
+import { Clock, MapPin, CheckCircle, AlertCircle, Plus, Edit, Shield, ChevronDown, History, Search, Info, Calendar, Users } from 'lucide-react';
 
 const STATUS_COLORS = {
     present: '#10b981', absent: '#ef4444', leave: '#06b6d4',
