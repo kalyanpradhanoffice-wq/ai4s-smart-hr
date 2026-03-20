@@ -14,6 +14,7 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS manager_id UUID REFERENCES 
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS salary_basic NUMERIC DEFAULT 0;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS salary_hra NUMERIC DEFAULT 0;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_color TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS department TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_onboarded BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS onboarding_status JSONB DEFAULT '{}'::jsonb;
 

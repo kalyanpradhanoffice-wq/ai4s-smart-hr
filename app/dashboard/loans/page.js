@@ -6,12 +6,12 @@ import { APPROVAL_WORKFLOWS } from '@/lib/mockData';
 import { DollarSign, Plus, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 function LoansContent() {
-    const { currentUser, users, loans, applyLoan, approveLoan } = useApp();
+    const { currentUser, users, loans, applyLoan, approveLoan, rejectLoan } = useApp();
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({ amount: '', purpose: '', tenure: 6, emi: null });
 
-    const myLoans = loans.filter(l => l.employeeId === currentUser?.id);
-    const allLoans = loans;
+    const isEmployee = currentUser?.role === 'employee';
+    const allLoans = isEmployee ? loans.filter(l => l.employeeId === currentUser?.id) : loans;
 
     function calcEMI(amount, tenure) {
         return Math.round(Number(amount) / Number(tenure));
@@ -48,7 +48,7 @@ function LoansContent() {
 
             <div className="table-wrapper">
                 <table className="data-table">
-                    <thead><tr><th>Employee</th><th>Amount</th><th>Purpose</th><th>Tenure</th><th>EMI</th><th>Level</th><th>Status</th><th>Applied</th></tr></thead>
+                    <thead><tr><th>Employee</th><th>Amount</th><th>Purpose</th><th>Tenure</th><th>EMI</th><th>Level</th><th>Status</th><th>Applied</th><th>Actions</th></tr></thead>
                     <tbody>
                         {allLoans.map(ln => {
                             const emp = users.find(u => u.id === ln.employeeId);
@@ -62,6 +62,39 @@ function LoansContent() {
                                     <td><span className="badge badge-neutral">L{ln.currentLevel}</span></td>
                                     <td><span className={`status-pill status-${ln.status}`}>{ln.status}</span></td>
                                     <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ln.requestedOn}</td>
+                                    <td>
+                                        {ln.status === 'pending' && (
+                                            (() => {
+                                                const workflow = APPROVAL_WORKFLOWS.LOAN.levels.find(l => l.level === ln.currentLevel);
+                                                const canApprove = currentUser?.role === workflow?.role || currentUser?.id === 'super_admin_id' || currentUser?.email === 'kalyanpradhanoffice@gmail.com';
+                                                
+                                                if (canApprove) {
+                                                    return (
+                                                        <div style={{ display: 'flex', gap: 6 }}>
+                                                            <button 
+                                                                className="btn btn-sm btn-ghost" 
+                                                                style={{ color: 'var(--brand-primary-light)', padding: '4px 8px' }}
+                                                                onClick={() => approveLoan(ln.id, currentUser.id, 'Approved', ln.currentLevel, APPROVAL_WORKFLOWS.LOAN.levels.length)}
+                                                                title="Approve"
+                                                            >
+                                                                <CheckCircle size={16} />
+                                                            </button>
+                                                            <button 
+                                                                className="btn btn-sm btn-ghost" 
+                                                                style={{ color: '#ef4444', padding: '4px 8px' }}
+                                                                onClick={() => rejectLoan(ln.id, currentUser.id, 'Rejected')}
+                                                                title="Reject"
+                                                            >
+                                                                <XCircle size={16} />
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                }
+                                                return <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Waiting for {workflow?.label}</span>;
+                                            })()
+                                        )}
+                                        {ln.status !== 'pending' && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>N/A</span>}
+                                    </td>
                                 </tr>
                             );
                         })}

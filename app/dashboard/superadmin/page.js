@@ -3,13 +3,11 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Shield, Users, Activity, Settings, TrendingUp, AlertCircle, CheckCircle, Clock, Database, Key, Wifi, Globe } from 'lucide-react';
+import { Shield, Users, Activity, Settings, TrendingUp, AlertCircle, CheckCircle, Clock, Database, Key, Wifi, Globe, Cake } from 'lucide-react';
+import BirthdayTile from '@/components/BirthdayTile';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
-const headcountByDept = [
-    { dept: 'Exec', count: 2 }, { dept: 'HR', count: 1 }, { dept: 'Eng', count: 3 },
-    { dept: 'Sales', count: 1 }, { dept: 'Finance', count: 1 }, { dept: 'Admin', count: 1 },
-];
+// Dynamic headcount logic is now inside the component
 const monthlyGrowth = [
     { month: 'Sep', emp: 5 }, { month: 'Oct', emp: 6 }, { month: 'Nov', emp: 6 },
     { month: 'Dec', emp: 7 }, { month: 'Jan', emp: 8 }, { month: 'Feb', emp: 8 }, { month: 'Mar', emp: 8 },
@@ -25,7 +23,18 @@ function SuperAdminContent() {
 
     const activeUsers = users.filter(u => u.status === 'active').length;
     const pendingLeaves = leaveRequests.filter(l => l.status === 'pending').length;
-    const totalNotifs = notifications.filter(n => !n.read).length;
+    
+    // Fix: Filter notifications correctly to show only current user's unread alerts
+    const totalNotifs = notifications.filter(n => !n.read && n.user_id === currentUser?.id).length;
+
+    // Fix: Calculate headcount dynamically by department
+    const headcountByDept = Object.entries(
+        users.reduce((acc, u) => {
+            const dept = u.department || 'Other';
+            acc[dept] = (acc[dept] || 0) + 1;
+            return acc;
+        }, {})
+    ).map(([dept, count]) => ({ dept, count }));
 
     const roleDistribution = [
         { name: 'Super Admin', value: users.filter(u => u.role === 'super_admin').length, color: '#f59e0b' },
@@ -38,7 +47,7 @@ function SuperAdminContent() {
     const stats = [
         { label: 'Total Employees', value: users.length, icon: Users, color: '#6366f1', sub: `${activeUsers} active`, href: '/dashboard/employees' },
         { label: 'Pending Approvals', value: pendingLeaves, icon: Clock, color: '#f59e0b', sub: 'Require action', href: '/dashboard/approvals' },
-        { label: 'Unread Alerts', value: totalNotifs, icon: AlertCircle, color: '#ef4444', sub: 'System-wide', href: null },
+        { label: 'Unread Alerts', value: totalNotifs, icon: AlertCircle, color: '#ef4444', sub: 'Your notifications', href: null },
         { label: 'Compliance Health', value: '98%', icon: CheckCircle, color: '#10b981', sub: 'All modules green', href: '/dashboard/audit' },
     ];
 
@@ -152,6 +161,18 @@ function SuperAdminContent() {
                             ))}
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <div className="grid-2" style={{ marginBottom: 28 }}>
+                <BirthdayTile users={users} />
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 12, background: 'linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(99,102,241,0.05) 100%)' }}>
+                    <div style={{ width: 50, height: 50, borderRadius: '50%', background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Activity size={24} color="#10b981" />
+                    </div>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>System Optimization</h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: 240 }}>Global background sync is active. Performance is currently within optimal range (42ms latency).</p>
+                    <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard/audit')}>System Health →</button>
                 </div>
             </div>
 

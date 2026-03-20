@@ -1,7 +1,8 @@
 'use client';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
-import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, Filter, Download, Clock, ChevronLeft, ChevronRight, Activity, Shield, User, Calendar } from 'lucide-react';
 
 const MODULES = ['All', 'Attendance', 'Leave', 'Payroll', 'Employee', 'Interview', 'Security', 'Auth', 'System'];
@@ -16,7 +17,14 @@ const PAGE_SIZE = 20;
 
 function HistoryContent() {
     const { currentUser, activityHistory, users } = useApp();
+    const router = useRouter();
     const [search, setSearch] = useState('');
+    
+    useEffect(() => {
+        if (currentUser && currentUser.role !== 'super_admin') {
+            router.replace('/dashboard/employee');
+        }
+    }, [currentUser, router]);
     const [moduleFilter, setModuleFilter] = useState('All');
     const [empFilter, setEmpFilter] = useState('');
     const [dateFrom, setDateFrom] = useState('');

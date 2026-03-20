@@ -40,13 +40,11 @@ function LeavesContent() {
     function calcDays(from, to) {
         if (!from || !to) return 0;
         const d1 = new Date(from), d2 = new Date(to);
-        let days = 0;
-        let cur = new Date(d1);
-        while (cur <= d2) {
-            const day = cur.getDay();
-            if (day !== 0 && day !== 6) days++;
-            cur.setDate(cur.getDate() + 1);
-        }
+        if (d2 < d1) return 0;
+        
+        // Use calendar days inclusive
+        const diffTime = Math.abs(d2 - d1);
+        const days = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
         return days;
     }
 
@@ -59,13 +57,15 @@ function LeavesContent() {
         }
     }
 
-    function handleSubmitLeave(e) {
+    async function handleSubmitLeave(e) {
         e.preventDefault();
         const days = calcDays(form.from, form.to);
-        applyLeave({ ...form, days, employeeId: currentUser.id, approverId: currentUser.reportingTo || 'USR004' });
-        setShowForm(false);
-        setForm({ type: 'CL', from: '', to: '', reason: '' });
-        setSandwichInfo(0);
+        const result = await applyLeave({ ...form, days, employeeId: currentUser.id, approverId: currentUser.reportingTo || 'USR004' });
+        if (result) {
+            setShowForm(false);
+            setForm({ type: 'CL', from: '', to: '', reason: '' });
+            setSandwichInfo(0);
+        }
     }
 
     function getEmpName(id) { return users.find(u => u.id === id)?.name || id; }
@@ -93,17 +93,18 @@ function LeavesContent() {
             </div>
 
             {/* Leave Balance Cards */}
-            {myBalance && (
-                <div style={{ display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap' }}>
-                    {LEAVE_TYPES.slice(0, 5).map(lt => (
+            <div style={{ display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap' }}>
+                {LEAVE_TYPES.slice(0, 5).map(lt => {
+                    const val = myBalance ? (myBalance[lt.id] ?? myBalance[lt.id.toLowerCase()]) : (lt.maxPerYear || 0);
+                    return (
                         <div key={lt.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '16px 20px', minWidth: 120, backdropFilter: 'blur(20px)', flex: '1 1 100px' }}>
                             <div style={{ fontSize: '0.68rem', color: lt.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{lt.id}</div>
-                            <div style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>{myBalance[lt.id] ?? '—'}</div>
+                            <div style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>{val}</div>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 2 }}>{lt.name}</div>
                         </div>
-                    ))}
-                </div>
-            )}
+                    );
+                })}
+            </div>
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
@@ -111,47 +112,95 @@ function LeavesContent() {
                     <button className={`tab-btn ${activeTab === 'my' ? 'active' : ''}`} onClick={() => setActiveTab('my')}>My Leaves</button>
                     {canApprove && <button className={`tab-btn ${activeTab === 'pending' ? 'active' : ''}`} onClick={() => setActiveTab('pending')}>Pending ({pendingLeaves.length})</button>}
                     {canViewAll && <button className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>All Leaves</button>}
+                    {(canViewAll || canManagePolicy) && (
+                        <button className={`tab-btn ${activeTab === 'balances' ? 'active' : ''}`} onClick={() => setActiveTab('balances')}>
+                            Employee Balances
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Leave Table */}
-            <div className="card" style={{ padding: 0 }}>
-                <div className="table-wrapper" style={{ boxShadow: 'none' }}>
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                {canViewAll && <th>Employee</th>}
-                                <th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Status</th>
-                                {canApprove && <th>Actions</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {displayLeaves.length === 0 ? (
-                                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No leave records found.</td></tr>
-                            ) : displayLeaves.map(lr => (
-                                <tr key={lr.id}>
-                                    {canViewAll && <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{getEmpName(lr.employeeId)}</td>}
-                                    <td><span className="badge badge-primary">{lr.type}</span></td>
-                                    <td style={{ fontSize: '0.85rem' }}>{lr.from}</td>
-                                    <td style={{ fontSize: '0.85rem' }}>{lr.to}</td>
-                                    <td style={{ fontWeight: 700, color: 'var(--brand-primary-light)' }}>{lr.days}</td>
-                                    <td style={{ fontSize: '0.82rem', maxWidth: 200 }}>{lr.reason}</td>
-                                    <td><span className={`status-pill status-${lr.status}`}>{lr.status}</span></td>
-                                    {canApprove && lr.status === 'pending' && (
-                                        <td>
-                                            <div style={{ display: 'flex', gap: 6 }}>
-                                                <button className="btn btn-success btn-sm" onClick={() => approveLeave(lr.id, currentUser.id, 'Approved', 1, lr.days > 3 ? 2 : 1)}><CheckCircle size={13} /></button>
-                                                <button className="btn btn-danger btn-sm" onClick={() => rejectLeave(lr.id, currentUser.id, 'Rejected')}><XCircle size={13} /></button>
-                                            </div>
-                                        </td>
-                                    )}
-                                    {canApprove && lr.status !== 'pending' && <td />}
+            {/* Leave Table / Balances View */}
+            {activeTab === 'balances' ? (
+                <div className="card" style={{ padding: 0 }}>
+                    <div className="table-wrapper">
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    {LEAVE_TYPES.slice(0, 5).map(lt => <th key={lt.id}>{lt.id}</th>)}
+                                    <th>Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                 {users.filter(u => u.status !== 'retired').map(u => {
+                                    const bal = leaveBalances.find(b => b.userId === u.id);
+                                    return (
+                                        <tr key={u.id}>
+                                            <td>
+                                                <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{u.name}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.employeeId}</div>
+                                            </td>
+                                            {LEAVE_TYPES.slice(0, 5).map(lt => {
+                                                const val = bal ? (bal[lt.id] ?? bal[lt.id.toLowerCase()]) : (lt.maxPerYear || 0);
+                                                return (
+                                                    <td key={lt.id} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                        {val}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td>
+                                                <button className="btn btn-ghost btn-sm" onClick={() => {
+                                                    setAdjustForm(f => ({ ...f, userId: u.id }));
+                                                    setShowAdjust(true);
+                                                }}>Adjust</button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <div className="card" style={{ padding: 0 }}>
+                    <div className="table-wrapper" style={{ boxShadow: 'none' }}>
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    {canViewAll && <th>Employee</th>}
+                                    <th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Status</th>
+                                    {canApprove && <th>Actions</th>}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {displayLeaves.length === 0 ? (
+                                    <tr><td colSpan={8} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No leave records found.</td></tr>
+                                ) : displayLeaves.map(lr => (
+                                    <tr key={lr.id}>
+                                        {canViewAll && <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{getEmpName(lr.employeeId)}</td>}
+                                        <td><span className="badge badge-primary">{lr.type}</span></td>
+                                        <td style={{ fontSize: '0.85rem' }}>{lr.from}</td>
+                                        <td style={{ fontSize: '0.85rem' }}>{lr.to}</td>
+                                        <td style={{ fontWeight: 700, color: 'var(--brand-primary-light)' }}>{lr.days}</td>
+                                        <td style={{ fontSize: '0.82rem', maxWidth: 200 }}>{lr.reason}</td>
+                                        <td><span className={`status-pill status-${lr.status}`}>{lr.status}</span></td>
+                                        {canApprove && lr.status === 'pending' && (
+                                            <td>
+                                                <div style={{ display: 'flex', gap: 6 }}>
+                                                    <button className="btn btn-success btn-sm" onClick={() => approveLeave(lr.id, currentUser.id, 'Approved', 1, lr.days > 3 ? 2 : 1)}><CheckCircle size={13} /></button>
+                                                    <button className="btn btn-danger btn-sm" onClick={() => rejectLeave(lr.id, currentUser.id, 'Rejected')}><XCircle size={13} /></button>
+                                                </div>
+                                            </td>
+                                        )}
+                                        {canApprove && lr.status !== 'pending' && <td />}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* Apply Leave Modal */}
             {showForm && (

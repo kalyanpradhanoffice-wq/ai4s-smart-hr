@@ -3,12 +3,16 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Clock, CheckCircle, XCircle, Calendar, Users, Bell, ChevronRight } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Calendar, Users, Bell, ChevronRight, Cake } from 'lucide-react';
+import BirthdayTile from '@/components/BirthdayTile';
 import { APPROVAL_WORKFLOWS } from '@/lib/mockData';
 
 function ManagerContent() {
     const router = useRouter();
-    const { currentUser, users, leaveRequests, regularizations, approveLeave, rejectLeave, approveRegularization } = useApp();
+    const { 
+        currentUser, users, leaveRequests, regularizations, attendance,
+        approveLeave, rejectLeave, approveRegularization, getAttendanceStatus 
+    } = useApp();
     const [activeTab, setActiveTab] = useState('leaves');
 
     const pendingLeaves = leaveRequests.filter(l => l.status === 'pending');
@@ -28,12 +32,19 @@ function ManagerContent() {
 
     // Team members (reporting to this manager)
     const teamMembers = users.filter(u => u.reportingTo === currentUser?.id);
+    const todayStr = new Date().toISOString().split('T')[0];
+
     const teamOnLeave = leaveRequests.filter(l =>
         teamMembers.some(m => m.id === l.employeeId) &&
         l.status === 'approved' &&
-        new Date(l.from) <= new Date() &&
-        new Date(l.to) >= new Date()
+        todayStr >= (l.from_date || l.from) &&
+        todayStr <= (l.to_date || l.to)
     );
+
+    const teamAttendanceHistory = attendance
+        .filter(a => teamMembers.some(m => m.id === a.userId))
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 15);
 
     return (
         <div className="animate-fade-in">
@@ -73,27 +84,41 @@ function ManagerContent() {
                 <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 16 }}>Team Status Today</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {teamMembers.map(member => {
-                        const onLeave = teamOnLeave.some(l => l.employeeId === member.id);
-                        const leave = teamOnLeave.find(l => l.employeeId === member.id);
+                        const att = attendance.find(a => a.userId === member.id && a.date === todayStr);
+                        const status = getAttendanceStatus(member.id, todayStr);
+                        const isWFH = status === 'wfh';
+                        const isOnLeave = status === 'leave';
+
                         return (
                             <div key={member.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-glass)', border: '1px solid var(--border-subtle)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    <div className="avatar avatar-sm">{member.avatar}</div>
+                                    <div className="avatar avatar-sm" style={{ background: member.avatarColor || 'var(--primary-light)' }}>
+                                        {member.name?.split(' ').map(n => n[0]).join('') || member.avatar}
+                                    </div>
                                     <div>
                                         <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{member.name}</div>
                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{member.designation}</div>
                                     </div>
                                 </div>
-                                <div>
-                                    {onLeave ? (
-                                        <div>
-                                            <span className="status-pill status-leave">On Leave</span>
-                                            {/* Privacy: don't show reason for manager, only type */}
-                                            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textAlign: 'right', marginTop: 3 }}>{leave?.type} leave</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                                            {att?.punchIn || '--:--'} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>→</span> {att?.punchOut || '--:--'}
                                         </div>
-                                    ) : (
-                                        <span className="status-pill status-present">Present</span>
-                                    )}
+                                        {att?.punchIn && att?.punchOut && (
+                                            <div style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 600 }}>
+                                                {(() => {
+                                                    const [h1, m1] = att.punchIn.split(':').map(Number);
+                                                    const [h2, m2] = att.punchOut.split(':').map(Number);
+                                                    const diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+                                                    return `${Math.floor(diff / 60)}h ${diff % 60}m`;
+                                                })()}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <span className={`status-pill status-${status}`}>
+                                        {status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}
+                                    </span>
                                 </div>
                             </div>
                         );
@@ -102,6 +127,56 @@ function ManagerContent() {
                         <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>No direct reports assigned yet.</div>
                     )}
                 </div>
+            </div>
+
+            {/* Team Attendance History */}
+            <div className="card" style={{ marginBottom: 24 }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 16 }}>Recent Team Attendance</h3>
+                <div className="table-wrapper">
+                    <table className="data-table">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Date</th>
+                                <th>Punch In</th>
+                                <th>Punch Out</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {teamAttendanceHistory.map(record => {
+                                const emp = getEmp(record.userId);
+                                return (
+                                    <tr key={record.id}>
+                                        <td>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <div className="avatar avatar-xs" style={{ fontSize: '0.6rem', background: emp?.avatarColor }}>{emp?.name?.[0]}</div>
+                                                <span style={{ fontWeight: 500 }}>{emp?.name}</span>
+                                            </div>
+                                        </td>
+                                        <td>{record.date}</td>
+                                        <td>{record.punchIn || '--:--'}</td>
+                                        <td>{record.punchOut || '--:--'}</td>
+                                        <td>
+                                            <span className={`status-pill status-${record.status}`}>
+                                                {record.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {teamAttendanceHistory.length === 0 && (
+                                <tr>
+                                    <td colSpan="5" style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>No attendance history found.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div style={{ marginBottom: 28 }}>
+                <BirthdayTile users={users} />
             </div>
 
             {/* Approval Inbox */}

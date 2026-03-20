@@ -58,7 +58,7 @@ const NAV_SECTIONS = [
         items: [
             { label: 'Role Management', icon: Shield, href: '/dashboard/roles', permission: PERMISSIONS.MANAGE_ROLES },
             { label: 'Network Security', icon: Wifi, href: '/dashboard/security', permission: PERMISSIONS.MANAGE_NETWORK_SECURITY },
-            { label: 'Audit Logs', icon: Database, href: '/dashboard/audit', permission: PERMISSIONS.VIEW_AUDIT_LOGS },
+            { label: 'Audit Logs', icon: Database, href: '/dashboard/audit', permission: PERMISSIONS.VIEW_AUDIT_LOGS, roles: ['super_admin'] },
             { label: 'System Settings', icon: Settings, href: '/dashboard/settings', permission: PERMISSIONS.MANAGE_APPROVAL_WORKFLOWS },
         ],
     },

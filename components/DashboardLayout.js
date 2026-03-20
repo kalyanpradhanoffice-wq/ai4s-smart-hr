@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useApp } from '@/lib/AppContext';
 import Sidebar from '@/components/Sidebar';
 import TopHeader from '@/components/TopHeader';
+import ToastContainer from '@/components/ToastContainer';
 import ClientProviders from '@/app/ClientProviders';
 
 function DashboardShell({ children, title }) {
@@ -35,6 +36,7 @@ function DashboardShell({ children, title }) {
                     {children}
                 </main>
             </div>
+            <ToastContainer />
         </div>
     );
 }

@@ -3,7 +3,8 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { DollarSign, Calendar, Target, Award, Star, TrendingUp, Clock, Heart, Send, Download } from 'lucide-react';
+import { DollarSign, Calendar, Target, Award, Star, TrendingUp, Clock, Heart, Send, Download, Cake } from 'lucide-react';
+import BirthdayTile from '@/components/BirthdayTile';
 import { calculateEPF, calculateESI } from '@/lib/mockData';
 
 function EmployeeContent() {
@@ -16,10 +17,19 @@ function EmployeeContent() {
     const myLeaves = leaveRequests.filter(l => l.employeeId === currentUser?.id);
     const myBalance = leaveBalances.find(b => b.userId === currentUser?.id);
     const myPayslip = payroll.filter(p => p.userId === currentUser?.id).sort((a, b) => new Date(b.paidOn || 0) - new Date(a.paidOn || 0))[0];
+    
+    // Projected Net Pay if no processed payslip
+    const projectedGross = currentUser?.salary?.gross || 0;
+    const projectedBasic = currentUser?.salary?.basic || 0;
+    const epfObj = calculateEPF(projectedBasic, false);
+    const esiObj = calculateESI(projectedGross);
+    const ptVal = projectedGross > 25000 ? 200 : projectedGross > 15000 ? 150 : 0;
+    const projectedNet = projectedGross - (epfObj.employee + esiObj.employee + ptVal);
     const myOKR = okrs.find(o => o.userId === currentUser?.id);
     const myKudos = kudos.filter(k => k.toId === currentUser?.id);
     const allKudos = kudos.slice(0, 8);
     const peers = users.filter(u => u.id !== currentUser?.id && u.role === 'employee');
+    const myManager = users.find(u => u.id === currentUser?.managerId);
 
     function handleSendKudos(e) {
         e.preventDefault();
@@ -141,6 +151,8 @@ function EmployeeContent() {
 
     const badges = ['🚀', '⭐', '💡', '🏆', '❤️', '🎯', '🔥', '👏'];
 
+    const netPayValue = myPayslip?.netPay ?? projectedNet;
+
     return (
         <div className="animate-fade-in">
             {/* Welcome Banner */}
@@ -151,6 +163,11 @@ function EmployeeContent() {
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 17 ? 'Afternoon' : 'Evening'}</div>
                     <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 800 }}>{currentUser?.name}</h2>
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{currentUser?.designation} • {currentUser?.department} • {currentUser?.employeeId}</div>
+                    {myManager && (
+                        <div style={{ color: 'var(--brand-primary-light)', fontSize: '0.85rem', fontWeight: 600, marginTop: 4 }}>
+                            Reporting Manager: {myManager.name}
+                        </div>
+                    )}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn btn-secondary btn-sm" onClick={() => router.push('/dashboard/leaves')}>Apply Leave</button>
@@ -162,9 +179,9 @@ function EmployeeContent() {
 
             <div className="grid-4" style={{ marginBottom: 28 }}>
                 {[
-                    { label: 'Net Pay (Feb)', value: `₹${myPayslip?.netPay?.toLocaleString() || '—'}`, color: '#10b981', sub: 'February 2025' },
-                    { label: 'Leave Balance (CL)', value: myBalance?.CL ?? '—', color: '#06b6d4', sub: 'Casual Leave' },
-                    { label: 'Leave Balance (EL)', value: myBalance?.EL ?? '—', color: '#6366f1', sub: 'Earned Leave' },
+                    { label: 'Net Pay (Feb)', value: `₹${netPayValue.toLocaleString()}`, color: '#10b981', sub: myPayslip ? 'Processed' : 'Projected' },
+                    { label: 'Leave Balance (CL)', value: myBalance?.CL ?? (LEAVE_TYPES.find(t=>t.id==='CL')?.maxPerYear || 12), color: '#06b6d4', sub: 'Casual Leave' },
+                    { label: 'Leave Balance (EL)', value: myBalance?.EL ?? (LEAVE_TYPES.find(t=>t.id==='EL')?.maxPerYear || 15), color: '#6366f1', sub: 'Earned Leave' },
                     { label: 'OKR Progress', value: myOKR ? `${myOKR.overallProgress}%` : '—', color: '#f59e0b', sub: 'Q1 2025' },
                 ].map(s => (
                     <div key={s.label} className="stat-card">
@@ -175,7 +192,7 @@ function EmployeeContent() {
                 ))}
             </div>
 
-            <div className="grid-2" style={{ marginBottom: 28 }}>
+            <div className="grid-3" style={{ marginBottom: 28 }}>
                 {/* My OKR Progress */}
                 <div className="card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -231,6 +248,9 @@ function EmployeeContent() {
                         )}
                     </div>
                 </div>
+
+                {/* Upcoming Birthdays */}
+                <BirthdayTile users={users} />
             </div>
 
             {/* Kudos Feed + Send Kudos */}
@@ -287,52 +307,54 @@ function EmployeeContent() {
             </div>
 
             {/* My Activity History */}
-            <div className="card" style={{ marginTop: 28 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>📋 My Activity History</h3>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Last 15 events</span>
-                </div>
-                {(() => {
-                    const myHistory = activityHistory
-                        .filter(h => h.performedById === currentUser?.id || h.targetEmployeeId === currentUser?.id)
-                        .slice(0, 15);
-                    const MODULE_COLORS = {
-                        Attendance: '#06b6d4', Leave: '#10b981', Payroll: '#f59e0b',
-                        Employee: '#6366f1', Interview: '#8b5cf6', Security: '#ef4444',
-                        Auth: '#84cc16', System: '#64748b',
-                    };
-                    if (myHistory.length === 0) return <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>No activity recorded yet.</div>;
-                    return (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                            {myHistory.map((h, idx) => {
-                                const color = MODULE_COLORS[h.module] || '#6366f1';
-                                return (
-                                    <div key={h.id} style={{ display: 'flex', gap: 14, padding: '12px 0', borderBottom: idx < myHistory.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                                        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
-                                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: `${color}18`, border: `2px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-                                            </div>
-                                            {idx < myHistory.length - 1 && <div style={{ width: 1, flex: 1, background: 'var(--border-subtle)', marginTop: 4 }} />}
-                                        </div>
-                                        <div style={{ flex: 1, paddingBottom: 4 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div>
-                                                    <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{h.action}</span>
-                                                    <span style={{ marginLeft: 8, display: 'inline-block', padding: '1px 7px', borderRadius: 'var(--radius-full)', fontSize: '0.65rem', fontWeight: 700, background: `${color}18`, color }}>{h.module}</span>
+            {currentUser?.role === 'super_admin' && (
+                <div className="card" style={{ marginTop: 28 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>📋 My Activity History</h3>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Last 15 events</span>
+                    </div>
+                    {(() => {
+                        const myHistory = activityHistory
+                            .filter(h => h.performedById === currentUser?.id || h.targetEmployeeId === currentUser?.id)
+                            .slice(0, 15);
+                        const MODULE_COLORS = {
+                            Attendance: '#06b6d4', Leave: '#10b981', Payroll: '#f59e0b',
+                            Employee: '#6366f1', Interview: '#8b5cf6', Security: '#ef4444',
+                            Auth: '#84cc16', System: '#64748b',
+                        };
+                        if (myHistory.length === 0) return <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>No activity recorded yet.</div>;
+                        return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                {myHistory.map((h, idx) => {
+                                    const color = MODULE_COLORS[h.module] || '#6366f1';
+                                    return (
+                                        <div key={h.id} style={{ display: 'flex', gap: 14, padding: '12px 0', borderBottom: idx < myHistory.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                                            <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
+                                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: `${color}18`, border: `2px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
                                                 </div>
-                                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', marginLeft: 8 }}>
-                                                    {new Date(h.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                                </span>
+                                                {idx < myHistory.length - 1 && <div style={{ width: 1, flex: 1, background: 'var(--border-subtle)', marginTop: 4 }} />}
                                             </div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 3 }}>{h.description}</div>
+                                            <div style={{ flex: 1, paddingBottom: 4 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                    <div>
+                                                        <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{h.action}</span>
+                                                        <span style={{ marginLeft: 8, display: 'inline-block', padding: '1px 7px', borderRadius: 'var(--radius-full)', fontSize: '0.65rem', fontWeight: 700, background: `${color}18`, color }}>{h.module}</span>
+                                                    </div>
+                                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', marginLeft: 8 }}>
+                                                        {new Date(h.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 3 }}>{h.description}</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    );
-                })()}
-            </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
+                </div>
+            )}
         </div>
     );
 }

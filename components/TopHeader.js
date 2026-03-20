@@ -47,7 +47,7 @@ export default function TopHeader({ title, customRoles }) {
     }
 
     function getNotifIcon(type) {
-        const icons = { leave: '🌴', approval: '✅', payroll: '💰', regularization: '🕐', kudos: '🏆', system: '⚙️' };
+        const icons = { leave: '📅', approval: '✅', payroll: '💰', regularization: '🕐', kudos: '🏆', system: '⚙️' };
         return icons[type] || '🔔';
     }
 
