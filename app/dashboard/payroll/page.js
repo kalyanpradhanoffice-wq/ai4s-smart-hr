@@ -2,9 +2,8 @@
 import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useState } from 'react';
-import { calculateEPF, calculateESI, STATUTORY } from '@/lib/mockData';
+import { calculateEPF, calculateESI, STATUTORY, PERMISSIONS } from '@/lib/constants';
 import { can } from '@/lib/rbac';
-import { PERMISSIONS } from '@/lib/mockData';
 import { Download, TrendingUp, Info, CheckCircle, FileSpreadsheet, History } from 'lucide-react';
 
 function PayrollContent() {

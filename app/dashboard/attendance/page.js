@@ -3,7 +3,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useState } from 'react';
 import { can } from '@/lib/rbac';
-import { PERMISSIONS } from '@/lib/mockData';
+import { PERMISSIONS } from '@/lib/constants';
 import { Clock, MapPin, CheckCircle, AlertCircle, Plus, Edit, Shield, ChevronDown, History, Search, Info, Calendar, Users } from 'lucide-react';
 
 const STATUS_COLORS = {

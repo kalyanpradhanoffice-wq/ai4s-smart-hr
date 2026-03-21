@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { DollarSign, Calendar, Target, Award, Star, TrendingUp, Clock, Heart, Send, Download, Cake } from 'lucide-react';
 import BirthdayTile from '@/components/BirthdayTile';
-import { calculateEPF, calculateESI } from '@/lib/mockData';
+import { calculateEPF, calculateESI } from '@/lib/constants';
 
 function EmployeeContent() {
     const router = useRouter();

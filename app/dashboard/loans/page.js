@@ -2,7 +2,7 @@
 import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useState } from 'react';
-import { APPROVAL_WORKFLOWS } from '@/lib/mockData';
+import { APPROVAL_WORKFLOWS, PERMISSIONS } from '@/lib/constants';
 import { DollarSign, Plus, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 function LoansContent() {

@@ -2,9 +2,8 @@
 import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useState } from 'react';
-import { LEAVE_TYPES, APPROVAL_WORKFLOWS, applySandwichRule } from '@/lib/mockData';
+import { LEAVE_TYPES, APPROVAL_WORKFLOWS, applySandwichRule, PERMISSIONS } from '@/lib/constants';
 import { can } from '@/lib/rbac';
-import { PERMISSIONS } from '@/lib/mockData';
 import { Plus, Calendar, Info, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 function LeavesContent() {

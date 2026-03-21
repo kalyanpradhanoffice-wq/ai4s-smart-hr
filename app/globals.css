@@ -352,10 +352,11 @@ a {
   border-radius: var(--radius-md);
 }
 
-.btn:active {
-  transform: translateY(1px) scale(0.98);
-  box-shadow: var(--shadow-sm);
-  filter: brightness(0.9);
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.96) !important;
+  box-shadow: none !important;
+  filter: brightness(0.85) !important;
+  transition: all 0.06s ease !important;
 }
 
 .btn:disabled {

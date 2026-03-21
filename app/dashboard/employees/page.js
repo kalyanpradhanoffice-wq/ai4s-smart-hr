@@ -3,7 +3,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useState } from 'react';
 import { can, getRoleMeta } from '@/lib/rbac';
-import { PERMISSIONS } from '@/lib/mockData';
+import { PERMISSIONS } from '@/lib/constants';
 import { Plus, Search, Mail, Phone, Edit2, Key, Filter, UserPlus, Trash2 } from 'lucide-react';
 
 const DEPARTMENTS = ['Technical', 'Functional', 'Techno-Functional'];

@@ -2,7 +2,7 @@
 import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useState } from 'react';
-import { DEFAULT_ROLES, PERMISSIONS } from '@/lib/mockData';
+import { DEFAULT_ROLES, PERMISSIONS } from '@/lib/constants';
 import { getRoleMeta, can } from '@/lib/rbac';
 import { Building, Users, Shield, Wifi, TrendingUp, Settings, Activity, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Clock, CheckCircle, XCircle, Calendar, Users, Bell, ChevronRight, Cake } from 'lucide-react';
 import BirthdayTile from '@/components/BirthdayTile';
-import { APPROVAL_WORKFLOWS } from '@/lib/mockData';
+import { APPROVAL_WORKFLOWS, PERMISSIONS } from '@/lib/constants';
 
 function ManagerContent() {
     const router = useRouter();

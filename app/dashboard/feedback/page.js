@@ -4,7 +4,7 @@ import { useApp } from '@/lib/AppContext';
 import { useState } from 'react';
 import { Star, Send, Eye, EyeOff, Award } from 'lucide-react';
 import { can } from '@/lib/rbac';
-import { PERMISSIONS } from '@/lib/mockData';
+import { PERMISSIONS } from '@/lib/constants';
 
 const CATEGORIES = ['communication', 'leadership', 'technical', 'collaboration'];
 
