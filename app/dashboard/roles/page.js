@@ -15,52 +15,62 @@ const NAV_SECTIONS = [
             {
                 group: 'Super Admin Dashboard',
                 route: '/dashboard/superadmin',
-                perms: [
-                    { key: 'VIEW_SUPER_ADMIN_DASHBOARD', label: 'Access Super Admin Dashboard' },
-                    { key: 'VIEW_SUPER_ADMIN_HEADCOUNT', label: 'View Headcount Analytics' },
-                    { key: 'VIEW_SUPER_ADMIN_PAYROLL_SUMMARY', label: 'View Payroll Summary Card' },
-                    { key: 'VIEW_SUPER_ADMIN_ATTENDANCE_RATE', label: 'View Attendance Rate Card' },
-                    { key: 'VIEW_SUPER_ADMIN_ACTIVITY_FEED', label: 'View Activity Feed' },
+                subGroups: [
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_SUPER_ADMIN_DASHBOARD', label: 'Access Super Admin Dashboard' },
+                        { key: 'VIEW_SUPER_ADMIN_HEADCOUNT', label: 'View Headcount Analytics' },
+                        { key: 'VIEW_SUPER_ADMIN_PAYROLL_SUMMARY', label: 'View Payroll Summary Card' },
+                        { key: 'VIEW_SUPER_ADMIN_ATTENDANCE_RATE', label: 'View Attendance Rate Card' },
+                        { key: 'VIEW_SUPER_ADMIN_ACTIVITY_FEED', label: 'View Activity Feed' },
+                    ]},
                 ],
             },
             {
                 group: 'Admin Hub',
                 route: '/dashboard/admin',
-                perms: [
-                    { key: 'VIEW_ADMIN_DASHBOARD', label: 'Access Admin Hub' },
-                    { key: 'VIEW_ADMIN_TEAM_STATS', label: 'View Team Stats' },
-                    { key: 'VIEW_ADMIN_PENDING_APPROVALS', label: 'View Pending Approvals Widget' },
-                    { key: 'VIEW_ADMIN_SECURITY_STATUS', label: 'View Security Status Widget' },
+                subGroups: [
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_ADMIN_DASHBOARD', label: 'Access Admin Hub' },
+                        { key: 'VIEW_ADMIN_TEAM_STATS', label: 'View Team Stats' },
+                        { key: 'VIEW_ADMIN_PENDING_APPROVALS', label: 'View Pending Approvals Widget' },
+                        { key: 'VIEW_ADMIN_SECURITY_STATUS', label: 'View Security Status Widget' },
+                    ]},
                 ],
             },
             {
                 group: 'HR Dashboard',
                 route: '/dashboard/hr',
-                perms: [
-                    { key: 'VIEW_HR_DASHBOARD', label: 'Access HR Dashboard' },
-                    { key: 'VIEW_HR_LEAVE_SUMMARY', label: 'View Leave Summary' },
-                    { key: 'VIEW_HR_PAYROLL_OVERVIEW', label: 'View Payroll Overview Widget' },
-                    { key: 'VIEW_HR_LIFECYCLE_STATUS', label: 'View Lifecycle Status' },
+                subGroups: [
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_HR_DASHBOARD', label: 'Access HR Dashboard' },
+                        { key: 'VIEW_HR_LEAVE_SUMMARY', label: 'View Leave Summary' },
+                        { key: 'VIEW_HR_PAYROLL_OVERVIEW', label: 'View Payroll Overview Widget' },
+                        { key: 'VIEW_HR_LIFECYCLE_STATUS', label: 'View Lifecycle Status' },
+                    ]},
                 ],
             },
             {
                 group: 'Manager Hub',
                 route: '/dashboard/manager',
-                perms: [
-                    { key: 'VIEW_MANAGER_DASHBOARD', label: 'Access Manager Hub' },
-                    { key: 'VIEW_MANAGER_TEAM_ATTENDANCE', label: 'View Team Attendance Today' },
-                    { key: 'VIEW_MANAGER_PENDING_ITEMS', label: 'View Pending Approvals Widget' },
-                    { key: 'VIEW_MANAGER_TEAM_LEAVE_STATUS', label: 'View Team Leave Status' },
+                subGroups: [
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_MANAGER_DASHBOARD', label: 'Access Manager Hub' },
+                        { key: 'VIEW_MANAGER_TEAM_ATTENDANCE', label: 'View Team Attendance Today' },
+                        { key: 'VIEW_MANAGER_PENDING_ITEMS', label: 'View Pending Approvals Widget' },
+                        { key: 'VIEW_MANAGER_TEAM_LEAVE_STATUS', label: 'View Team Leave Status' },
+                    ]},
                 ],
             },
             {
                 group: 'My Dashboard',
                 route: '/dashboard/employee',
-                perms: [
-                    { key: 'VIEW_EMPLOYEE_DASHBOARD', label: 'Access My Dashboard' },
-                    { key: 'VIEW_OWN_PROFILE', label: 'View Own Profile Page' },
-                    { key: 'VIEW_OWN_KPIs', label: 'View Personal KPIs Widget' },
-                    { key: 'VIEW_OWN_UPCOMING_EVENTS', label: 'View Upcoming Events Widget' },
+                subGroups: [
+                    { label: 'For Own', icon: '👤', perms: [
+                        { key: 'VIEW_EMPLOYEE_DASHBOARD', label: 'Access My Dashboard' },
+                        { key: 'VIEW_OWN_PROFILE', label: 'View Own Profile Page' },
+                        { key: 'VIEW_OWN_KPIs', label: 'View Personal KPIs Widget' },
+                        { key: 'VIEW_OWN_UPCOMING_EVENTS', label: 'View Upcoming Events Widget' },
+                    ]},
                 ],
             },
         ],
@@ -72,60 +82,73 @@ const NAV_SECTIONS = [
             {
                 group: 'Employees',
                 route: '/dashboard/employees',
-                perms: [
-                    { key: 'VIEW_ALL_EMPLOYEES', label: 'View All Employees List' },
-                    { key: 'VIEW_EMPLOYEE_DIRECTORY', label: 'Access Employee Directory' },
-                    { key: 'VIEW_EMPLOYEE_CONTACT', label: 'View Contact Details (Email / Phone)' },
-                    { key: 'VIEW_EMPLOYEE_DESIGNATION', label: 'View Designation & Department' },
-                    { key: 'VIEW_EMPLOYEE_JOIN_DATE', label: 'View Join Date' },
-                    { key: 'VIEW_EMPLOYEE_SALARY', label: 'View Salary Information' },
-                    { key: 'VIEW_INACTIVE_EMPLOYEES', label: 'View Inactive / Retired Employees' },
-                    { key: 'FILTER_EMPLOYEES_BY_DEPT', label: 'Filter by Department / Role' },
-                    { key: 'EXPORT_EMPLOYEE_DATA', label: 'Export Employee Data (CSV)' },
-                    { key: 'CREATE_EMPLOYEE', label: 'Add New Employee Account' },
-                    { key: 'EDIT_EMPLOYEE', label: 'Edit Employee Profile Details' },
-                    { key: 'EDIT_EMPLOYEE_SALARY', label: 'Edit Employee Salary Figures' },
-                    { key: 'DEACTIVATE_EMPLOYEE', label: 'Deactivate / Retire Employee' },
-                    { key: 'DELETE_EMPLOYEE', label: 'Permanently Delete Employee' },
-                    { key: 'RESET_PASSWORDS', label: 'Reset Employee Login Password' },
-                    { key: 'MANAGE_EMPLOYEE_DOCS', label: 'Manage Employee Documents' },
+                subGroups: [
+                    { label: 'For Own', icon: '👤', perms: [
+                        { key: 'VIEW_OWN_PROFILE', label: 'View Own Employee Profile' },
+                    ]},
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_ALL_EMPLOYEES', label: 'View All Employees List' },
+                        { key: 'VIEW_EMPLOYEE_DIRECTORY', label: 'Access Employee Directory' },
+                        { key: 'VIEW_EMPLOYEE_CONTACT', label: 'View Contact Details (Email / Phone)' },
+                        { key: 'VIEW_EMPLOYEE_DESIGNATION', label: 'View Designation & Department' },
+                        { key: 'VIEW_EMPLOYEE_JOIN_DATE', label: 'View Join Date' },
+                        { key: 'VIEW_EMPLOYEE_SALARY', label: 'View Salary Information' },
+                        { key: 'VIEW_INACTIVE_EMPLOYEES', label: 'View Inactive / Retired Employees' },
+                        { key: 'FILTER_EMPLOYEES_BY_DEPT', label: 'Filter by Department / Role' },
+                        { key: 'EXPORT_EMPLOYEE_DATA', label: 'Export Employee Data (CSV)' },
+                        { key: 'CREATE_EMPLOYEE', label: 'Add New Employee Account' },
+                        { key: 'EDIT_EMPLOYEE', label: 'Edit Employee Profile Details' },
+                        { key: 'EDIT_EMPLOYEE_SALARY', label: 'Edit Employee Salary Figures' },
+                        { key: 'DEACTIVATE_EMPLOYEE', label: 'Deactivate / Retire Employee' },
+                        { key: 'DELETE_EMPLOYEE', label: 'Permanently Delete Employee' },
+                        { key: 'RESET_PASSWORDS', label: 'Reset Employee Login Password' },
+                        { key: 'MANAGE_EMPLOYEE_DOCS', label: 'Manage Employee Documents' },
+                    ]},
                 ],
             },
             {
                 group: 'Onboarding',
                 route: '/dashboard/onboarding',
-                perms: [
-                    { key: 'VIEW_ONBOARDING_LIST', label: 'View Onboarding Employee List' },
-                    { key: 'VIEW_ONBOARDING_PROGRESS', label: 'View KYC / Document Progress' },
-                    { key: 'INITIATE_ONBOARDING', label: 'Initiate Onboarding for an Employee' },
-                    { key: 'UPDATE_KYC_STATUS', label: 'Update KYC Document Checklist' },
-                    { key: 'FINALIZE_ONBOARDING', label: 'Finalize Onboarding & Generate Employee ID' },
-                    { key: 'MANAGE_ONBOARDING', label: 'Full Onboarding Module Management' },
+                subGroups: [
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_ONBOARDING_LIST', label: 'View Onboarding Employee List' },
+                        { key: 'VIEW_ONBOARDING_PROGRESS', label: 'View KYC / Document Progress' },
+                        { key: 'INITIATE_ONBOARDING', label: 'Initiate Onboarding for an Employee' },
+                        { key: 'UPDATE_KYC_STATUS', label: 'Update KYC Document Checklist' },
+                        { key: 'FINALIZE_ONBOARDING', label: 'Finalize Onboarding & Generate Employee ID' },
+                        { key: 'MANAGE_ONBOARDING', label: 'Full Onboarding Module Management' },
+                    ]},
                 ],
             },
             {
                 group: 'Offboarding',
                 route: '/dashboard/onboarding#offboarding',
-                perms: [
-                    { key: 'VIEW_OFFBOARDING_LIST', label: 'View Departing Employee List' },
-                    { key: 'VIEW_FNF_CALCULATIONS', label: 'View F&F / Gratuity Calculations' },
-                    { key: 'INITIATE_OFFBOARDING', label: 'Initiate Offboarding Process' },
-                    { key: 'MANAGE_CLEARANCE_CHECKLIST', label: 'Manage Department Clearances' },
-                    { key: 'APPROVE_CLEARANCE', label: 'Approve / Mark Clearances Green' },
-                    { key: 'GENERATE_RELIEVING_LETTER', label: 'Generate Relieving Letter' },
-                    { key: 'MANAGE_OFFBOARDING', label: 'Full Offboarding Module Management' },
+                subGroups: [
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_OFFBOARDING_LIST', label: 'View Departing Employee List' },
+                        { key: 'VIEW_FNF_CALCULATIONS', label: 'View F&F / Gratuity Calculations' },
+                        { key: 'INITIATE_OFFBOARDING', label: 'Initiate Offboarding Process' },
+                        { key: 'MANAGE_CLEARANCE_CHECKLIST', label: 'Manage Department Clearances' },
+                        { key: 'APPROVE_CLEARANCE', label: 'Approve / Mark Clearances Green' },
+                        { key: 'GENERATE_RELIEVING_LETTER', label: 'Generate Relieving Letter' },
+                        { key: 'MANAGE_OFFBOARDING', label: 'Full Offboarding Module Management' },
+                    ]},
                 ],
             },
             {
                 group: 'Interviews',
                 route: '/dashboard/interviews',
-                perms: [
-                    { key: 'VIEW_INTERVIEW_SCHEDULE', label: 'View Interview Schedule / Calendar' },
-                    { key: 'SCHEDULE_INTERVIEW', label: 'Schedule a New Interview' },
-                    { key: 'ASSIGN_INTERVIEWER', label: 'Assign Interviewer to Candidate' },
-                    { key: 'SUBMIT_INTERVIEW_ASSESSMENT', label: 'Submit Assessment for a Candidate' },
-                    { key: 'VIEW_ALL_ASSESSMENTS', label: 'View All Candidate Assessments' },
-                    { key: 'MANAGE_INTERVIEW_PIPELINE', label: 'Full Interview Pipeline Management' },
+                subGroups: [
+                    { label: 'For Own', icon: '👤', perms: [
+                        { key: 'SUBMIT_INTERVIEW_ASSESSMENT', label: 'Submit Assessment for a Candidate' },
+                    ]},
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_INTERVIEW_SCHEDULE', label: 'View Interview Schedule / Calendar' },
+                        { key: 'SCHEDULE_INTERVIEW', label: 'Schedule a New Interview' },
+                        { key: 'ASSIGN_INTERVIEWER', label: 'Assign Interviewer to Candidate' },
+                        { key: 'VIEW_ALL_ASSESSMENTS', label: 'View All Candidate Assessments' },
+                        { key: 'MANAGE_INTERVIEW_PIPELINE', label: 'Full Interview Pipeline Management' },
+                    ]},
                 ],
             },
         ],
@@ -137,57 +160,69 @@ const NAV_SECTIONS = [
             {
                 group: 'Attendance',
                 route: '/dashboard/attendance',
-                perms: [
-                    { key: 'VIEW_OWN_ATTENDANCE', label: 'View Own Attendance History' },
-                    { key: 'VIEW_ATTENDANCE_CALENDAR', label: 'View 14-Day Attendance Calendar' },
-                    { key: 'PUNCH_IN', label: 'Punch In (Clock In)' },
-                    { key: 'PUNCH_OUT', label: 'Punch Out (Clock Out)' },
-                    { key: 'MARK_ATTENDANCE', label: 'Mark Full-Day / Half-Day' },
-                    { key: 'REQUEST_REGULARIZATION', label: 'Submit Attendance Regularization Request' },
-                    { key: 'VIEW_TEAM_ATTENDANCE', label: 'View Team Members\' Attendance' },
-                    { key: 'VIEW_ALL_ATTENDANCE', label: 'View All Employees\' Attendance' },
-                    { key: 'VIEW_TEAM_REGULARIZATIONS', label: 'View Team Regularization Requests' },
-                    { key: 'VIEW_ALL_REGULARIZATIONS', label: 'View All Regularization Requests' },
-                    { key: 'APPROVE_REGULARIZATION', label: 'Approve Regularization Request' },
-                    { key: 'REJECT_REGULARIZATION', label: 'Reject Regularization Request' },
-                    { key: 'EDIT_ATTENDANCE_LOG', label: 'HR Correct Attendance Entry' },
-                    { key: 'DELETE_ATTENDANCE_LOG', label: 'Delete Attendance Entry' },
-                    { key: 'MANAGE_GEOFENCE', label: 'Manage Geofence / Location Rules' },
-                    { key: 'MANAGE_ATTENDANCE_SETTINGS', label: 'Configure Attendance Settings' },
-                    { key: 'VIEW_ATTENDANCE_REPORTS', label: 'View Attendance Reports' },
-                    { key: 'EXPORT_ATTENDANCE_DATA', label: 'Export Attendance Data (CSV)' },
+                subGroups: [
+                    { label: 'For Own', icon: '👤', perms: [
+                        { key: 'VIEW_OWN_ATTENDANCE', label: 'View Own Attendance History' },
+                        { key: 'VIEW_ATTENDANCE_CALENDAR', label: 'View 14-Day Attendance Calendar' },
+                        { key: 'PUNCH_IN', label: 'Punch In (Clock In)' },
+                        { key: 'PUNCH_OUT', label: 'Punch Out (Clock Out)' },
+                        { key: 'MARK_ATTENDANCE', label: 'Mark Full-Day / Half-Day' },
+                        { key: 'REQUEST_REGULARIZATION', label: 'Submit Attendance Regularization Request' },
+                    ]},
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_TEAM_ATTENDANCE', label: 'View Team Members\' Attendance' },
+                        { key: 'VIEW_ALL_ATTENDANCE', label: 'View All Employees\' Attendance' },
+                        { key: 'VIEW_TEAM_REGULARIZATIONS', label: 'View Team Regularization Requests' },
+                        { key: 'VIEW_ALL_REGULARIZATIONS', label: 'View All Regularization Requests' },
+                        { key: 'APPROVE_REGULARIZATION', label: 'Approve Regularization Request' },
+                        { key: 'REJECT_REGULARIZATION', label: 'Reject Regularization Request' },
+                        { key: 'EDIT_ATTENDANCE_LOG', label: 'HR Correct Attendance Entry' },
+                        { key: 'DELETE_ATTENDANCE_LOG', label: 'Delete Attendance Entry' },
+                        { key: 'MANAGE_GEOFENCE', label: 'Manage Geofence / Location Rules' },
+                        { key: 'MANAGE_ATTENDANCE_SETTINGS', label: 'Configure Attendance Settings' },
+                        { key: 'VIEW_ATTENDANCE_REPORTS', label: 'View Attendance Reports' },
+                        { key: 'EXPORT_ATTENDANCE_DATA', label: 'Export Attendance Data (CSV)' },
+                    ]},
                 ],
             },
             {
                 group: 'Leave Management',
                 route: '/dashboard/leaves',
-                perms: [
-                    { key: 'VIEW_OWN_LEAVE_BALANCE', label: 'View Own Leave Balance' },
-                    { key: 'VIEW_LEAVE_HISTORY', label: 'View Own Leave Request History' },
-                    { key: 'APPLY_LEAVE', label: 'Apply for Leave' },
-                    { key: 'CANCEL_LEAVE', label: 'Cancel Own Leave Request' },
-                    { key: 'VIEW_LEAVE_ENCASHMENT', label: 'View Leave Encashment Details' },
-                    { key: 'VIEW_TEAM_LEAVES', label: 'View Team Leave Requests' },
-                    { key: 'VIEW_TEAM_LEAVE_CALENDAR', label: 'View Team Leave Calendar' },
-                    { key: 'VIEW_ALL_LEAVES', label: 'View All Organization Leave Requests' },
-                    { key: 'APPROVE_LEAVE', label: 'Approve Leave Request' },
-                    { key: 'REJECT_LEAVE', label: 'Reject Leave Request' },
-                    { key: 'ADJUST_LEAVE_BALANCE', label: 'Manually Adjust Employee Leave Balance' },
-                    { key: 'MANAGE_LEAVE_TYPES', label: 'Manage Leave Types (CL, EL, SL...)' },
-                    { key: 'MANAGE_LEAVE_POLICY', label: 'Configure Leave Policy & Quotas' },
-                    { key: 'VIEW_LEAVE_REPORTS', label: 'View Leave Analytics & Reports' },
+                subGroups: [
+                    { label: 'For Own', icon: '👤', perms: [
+                        { key: 'VIEW_OWN_LEAVE_BALANCE', label: 'View Own Leave Balance' },
+                        { key: 'VIEW_LEAVE_HISTORY', label: 'View Own Leave Request History' },
+                        { key: 'APPLY_LEAVE', label: 'Apply for Leave' },
+                        { key: 'CANCEL_LEAVE', label: 'Cancel Own Leave Request' },
+                        { key: 'VIEW_LEAVE_ENCASHMENT', label: 'View Leave Encashment Details' },
+                    ]},
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_TEAM_LEAVES', label: 'View Team Leave Requests' },
+                        { key: 'VIEW_TEAM_LEAVE_CALENDAR', label: 'View Team Leave Calendar' },
+                        { key: 'VIEW_ALL_LEAVES', label: 'View All Organization Leave Requests' },
+                        { key: 'APPROVE_LEAVE', label: 'Approve Leave Request' },
+                        { key: 'REJECT_LEAVE', label: 'Reject Leave Request' },
+                        { key: 'ADJUST_LEAVE_BALANCE', label: 'Manually Adjust Employee Leave Balance' },
+                        { key: 'MANAGE_LEAVE_TYPES', label: 'Manage Leave Types (CL, EL, SL...)' },
+                        { key: 'MANAGE_LEAVE_POLICY', label: 'Configure Leave Policy & Quotas' },
+                        { key: 'VIEW_LEAVE_REPORTS', label: 'View Leave Analytics & Reports' },
+                    ]},
                 ],
             },
             {
                 group: 'Approvals',
                 route: '/dashboard/approvals',
-                perms: [
-                    { key: 'VIEW_PENDING_APPROVALS', label: 'View Pending Approvals Queue' },
-                    { key: 'APPROVE_ANY_REQUEST', label: 'Approve Any Type of Request' },
-                    { key: 'REJECT_ANY_REQUEST', label: 'Reject Any Type of Request' },
-                    { key: 'VIEW_APPROVAL_HISTORY', label: 'View Approval History Log' },
-                    { key: 'MANAGE_APPROVAL_RULES', label: 'Configure Approval Rules / SLAs' },
-                    { key: 'MANAGE_APPROVAL_WORKFLOWS', label: 'Configure Approval Workflow Levels' },
+                subGroups: [
+                    { label: 'For Own', icon: '👤', perms: [
+                        { key: 'VIEW_PENDING_APPROVALS', label: 'View Pending Approvals Queue' },
+                        { key: 'VIEW_APPROVAL_HISTORY', label: 'View Approval History Log' },
+                    ]},
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'APPROVE_ANY_REQUEST', label: 'Approve Any Type of Request' },
+                        { key: 'REJECT_ANY_REQUEST', label: 'Reject Any Type of Request' },
+                        { key: 'MANAGE_APPROVAL_RULES', label: 'Configure Approval Rules / SLAs' },
+                        { key: 'MANAGE_APPROVAL_WORKFLOWS', label: 'Configure Approval Workflow Levels' },
+                    ]},
                 ],
             },
         ],
@@ -199,40 +234,48 @@ const NAV_SECTIONS = [
             {
                 group: 'Payroll',
                 route: '/dashboard/payroll',
-                perms: [
-                    { key: 'VIEW_OWN_PAYSLIP', label: 'View Own Payslip' },
-                    { key: 'VIEW_OWN_SALARY_BREAKDOWN', label: 'View Salary Breakdown (Basic, HRA, etc.)' },
-                    { key: 'VIEW_OWN_EPF_ESI', label: 'View EPF / ESI Deduction Details' },
-                    { key: 'VIEW_OWN_NET_PAY', label: 'View Net Pay Amount' },
-                    { key: 'DOWNLOAD_PAYSLIP', label: 'Download Payslip as PDF' },
-                    { key: 'REQUEST_SALARY_UPGRADE', label: 'Request Salary Appraisal' },
-                    { key: 'VIEW_ALL_PAYSLIPS', label: 'View All Employees\' Payslips' },
-                    { key: 'VIEW_ALL_SALARY_STRUCTURES', label: 'View All Salary Structures' },
-                    { key: 'VIEW_ALL_SALARY_UPGRADES', label: 'View All Salary Appraisal Requests' },
-                    { key: 'MANAGE_SALARY', label: 'Manage / Edit Employee Salary' },
-                    { key: 'MODIFY_SALARY_COMPONENT', label: 'Modify Individual Salary Component' },
-                    { key: 'APPROVE_SALARY_UPGRADE', label: 'Approve Salary Appraisal Request' },
-                    { key: 'APPROVE_REJECT_SALARY_UPGRADE', label: 'Approve or Reject Salary Upgrade' },
-                    { key: 'PROCESS_PAYROLL', label: 'Process Monthly Payroll Run' },
-                    { key: 'RUN_PAYROLL', label: 'Run Full Payroll Cycle' },
-                    { key: 'VIEW_PAYROLL_HISTORY', label: 'View Payroll Processing History' },
-                    { key: 'VIEW_STATUTORY_REPORTS', label: 'View Statutory Reports (PF, ESI, TDS)' },
-                    { key: 'MANAGE_TAX_REGIMES', label: 'Manage Tax Regimes (Old / New)' },
-                    { key: 'MANAGE_STATUTORY_LIMITS', label: 'Configure Statutory Limits & Rates' },
+                subGroups: [
+                    { label: 'For Own', icon: '👤', perms: [
+                        { key: 'VIEW_OWN_PAYSLIP', label: 'View Own Payslip' },
+                        { key: 'VIEW_OWN_SALARY_BREAKDOWN', label: 'View Salary Breakdown (Basic, HRA, etc.)' },
+                        { key: 'VIEW_OWN_EPF_ESI', label: 'View EPF / ESI Deduction Details' },
+                        { key: 'VIEW_OWN_NET_PAY', label: 'View Net Pay Amount' },
+                        { key: 'DOWNLOAD_PAYSLIP', label: 'Download Payslip as PDF' },
+                        { key: 'REQUEST_SALARY_UPGRADE', label: 'Request Salary Appraisal' },
+                    ]},
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_ALL_PAYSLIPS', label: 'View All Employees\' Payslips' },
+                        { key: 'VIEW_ALL_SALARY_STRUCTURES', label: 'View All Salary Structures' },
+                        { key: 'VIEW_ALL_SALARY_UPGRADES', label: 'View All Salary Appraisal Requests' },
+                        { key: 'MANAGE_SALARY', label: 'Manage / Edit Employee Salary' },
+                        { key: 'MODIFY_SALARY_COMPONENT', label: 'Modify Individual Salary Component' },
+                        { key: 'APPROVE_SALARY_UPGRADE', label: 'Approve Salary Appraisal Request' },
+                        { key: 'APPROVE_REJECT_SALARY_UPGRADE', label: 'Approve or Reject Salary Upgrade' },
+                        { key: 'PROCESS_PAYROLL', label: 'Process Monthly Payroll Run' },
+                        { key: 'RUN_PAYROLL', label: 'Run Full Payroll Cycle' },
+                        { key: 'VIEW_PAYROLL_HISTORY', label: 'View Payroll Processing History' },
+                        { key: 'VIEW_STATUTORY_REPORTS', label: 'View Statutory Reports (PF, ESI, TDS)' },
+                        { key: 'MANAGE_TAX_REGIMES', label: 'Manage Tax Regimes (Old / New)' },
+                        { key: 'MANAGE_STATUTORY_LIMITS', label: 'Configure Statutory Limits & Rates' },
+                    ]},
                 ],
             },
             {
                 group: 'Loans & Advances',
                 route: '/dashboard/loans',
-                perms: [
-                    { key: 'VIEW_OWN_LOANS', label: 'View Own Loan / Advance Requests' },
-                    { key: 'APPLY_LOAN', label: 'Apply for a Loan or Advance' },
-                    { key: 'VIEW_LOAN_REPAYMENT_SCHEDULE', label: 'View Loan Repayment Schedule' },
-                    { key: 'VIEW_ALL_LOANS', label: 'View All Loan Requests' },
-                    { key: 'APPROVE_LOAN', label: 'Approve Loan Request' },
-                    { key: 'REJECT_LOAN', label: 'Reject Loan Request' },
-                    { key: 'VIEW_LOAN_DISBURSEMENT', label: 'View Disbursement & Payout Details' },
-                    { key: 'MANAGE_LOAN_POLICIES', label: 'Configure Loan Policies & Limits' },
+                subGroups: [
+                    { label: 'For Own', icon: '👤', perms: [
+                        { key: 'VIEW_OWN_LOANS', label: 'View Own Loan / Advance Requests' },
+                        { key: 'APPLY_LOAN', label: 'Apply for a Loan or Advance' },
+                        { key: 'VIEW_LOAN_REPAYMENT_SCHEDULE', label: 'View Loan Repayment Schedule' },
+                    ]},
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_ALL_LOANS', label: 'View All Loan Requests' },
+                        { key: 'APPROVE_LOAN', label: 'Approve Loan Request' },
+                        { key: 'REJECT_LOAN', label: 'Reject Loan Request' },
+                        { key: 'VIEW_LOAN_DISBURSEMENT', label: 'View Disbursement & Payout Details' },
+                        { key: 'MANAGE_LOAN_POLICIES', label: 'Configure Loan Policies & Limits' },
+                    ]},
                 ],
             },
         ],
@@ -244,32 +287,40 @@ const NAV_SECTIONS = [
             {
                 group: 'OKRs',
                 route: '/dashboard/okr',
-                perms: [
-                    { key: 'VIEW_OWN_OKR', label: 'View Own OKRs & Key Results' },
-                    { key: 'CREATE_OKR', label: 'Create a New OKR' },
-                    { key: 'EDIT_OWN_OKR', label: 'Edit Own OKR Details' },
-                    { key: 'UPDATE_OKR_PROGRESS', label: 'Update OKR / KR Progress %' },
-                    { key: 'DELETE_OKR', label: 'Delete an OKR' },
-                    { key: 'LINK_OKR', label: 'Link OKR to a Parent / Company Goal' },
-                    { key: 'VIEW_TEAM_OKR', label: 'View Team Members\' OKRs' },
-                    { key: 'VIEW_ALL_OKR', label: 'View All OKRs (Organization-wide)' },
-                    { key: 'MANAGE_OKR', label: 'Full OKR Management & Configuration' },
-                    { key: 'VIEW_OKR_ANALYTICS', label: 'View OKR Analytics & Progress Reports' },
+                subGroups: [
+                    { label: 'For Own', icon: '👤', perms: [
+                        { key: 'VIEW_OWN_OKR', label: 'View Own OKRs & Key Results' },
+                        { key: 'CREATE_OKR', label: 'Create a New OKR' },
+                        { key: 'EDIT_OWN_OKR', label: 'Edit Own OKR Details' },
+                        { key: 'UPDATE_OKR_PROGRESS', label: 'Update OKR / KR Progress %' },
+                        { key: 'DELETE_OKR', label: 'Delete an OKR' },
+                        { key: 'LINK_OKR', label: 'Link OKR to a Parent / Company Goal' },
+                    ]},
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_TEAM_OKR', label: 'View Team Members\' OKRs' },
+                        { key: 'VIEW_ALL_OKR', label: 'View All OKRs (Organization-wide)' },
+                        { key: 'MANAGE_OKR', label: 'Full OKR Management & Configuration' },
+                        { key: 'VIEW_OKR_ANALYTICS', label: 'View OKR Analytics & Progress Reports' },
+                    ]},
                 ],
             },
             {
                 group: '360° Feedback',
                 route: '/dashboard/feedback',
-                perms: [
-                    { key: 'SUBMIT_FEEDBACK', label: 'Submit Feedback for a Colleague' },
-                    { key: 'GIVE_KUDOS', label: 'Give Kudos / Public Recognition' },
-                    { key: 'VIEW_KUDOS_BOARD', label: 'View Kudos Board' },
-                    { key: 'VIEW_FEEDBACK', label: 'View Feedback Submitted by Self' },
-                    { key: 'VIEW_OWN_RECEIVED_FEEDBACK', label: 'View Feedback Received on Self' },
-                    { key: 'VIEW_TEAM_FEEDBACK', label: 'View Feedback for Team Members' },
-                    { key: 'VIEW_ALL_FEEDBACK', label: 'View All Feedback (Organization)' },
-                    { key: 'MANAGE_FEEDBACK_CYCLES', label: 'Manage Feedback Cycles & Rounds' },
-                    { key: 'EXPORT_FEEDBACK_REPORTS', label: 'Export Feedback Reports (CSV)' },
+                subGroups: [
+                    { label: 'For Own', icon: '👤', perms: [
+                        { key: 'SUBMIT_FEEDBACK', label: 'Submit Feedback for a Colleague' },
+                        { key: 'GIVE_KUDOS', label: 'Give Kudos / Public Recognition' },
+                        { key: 'VIEW_KUDOS_BOARD', label: 'View Kudos Board' },
+                        { key: 'VIEW_FEEDBACK', label: 'View Feedback Submitted by Self' },
+                        { key: 'VIEW_OWN_RECEIVED_FEEDBACK', label: 'View Feedback Received on Self' },
+                    ]},
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_TEAM_FEEDBACK', label: 'View Feedback for Team Members' },
+                        { key: 'VIEW_ALL_FEEDBACK', label: 'View All Feedback (Organization)' },
+                        { key: 'MANAGE_FEEDBACK_CYCLES', label: 'Manage Feedback Cycles & Rounds' },
+                        { key: 'EXPORT_FEEDBACK_REPORTS', label: 'Export Feedback Reports (CSV)' },
+                    ]},
                 ],
             },
         ],
@@ -281,48 +332,56 @@ const NAV_SECTIONS = [
             {
                 group: 'Role Management',
                 route: '/dashboard/roles',
-                perms: [
-                    { key: 'VIEW_ROLES', label: 'View All Roles List' },
-                    { key: 'CREATE_ROLE', label: 'Create a New Custom Role' },
-                    { key: 'EDIT_ROLE_PERMISSIONS', label: 'Edit Role Permissions' },
-                    { key: 'DELETE_ROLE', label: 'Delete a Custom Role' },
-                    { key: 'CLONE_ROLE', label: 'Clone / Duplicate an Existing Role' },
-                    { key: 'MANAGE_ROLES', label: 'Full Role Management Access' },
-                    { key: 'MANAGE_USERS', label: 'Manage User Accounts' },
-                    { key: 'ASSIGN_ROLES', label: 'Assign Roles to Users' },
+                subGroups: [
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_ROLES', label: 'View All Roles List' },
+                        { key: 'CREATE_ROLE', label: 'Create a New Custom Role' },
+                        { key: 'EDIT_ROLE_PERMISSIONS', label: 'Edit Role Permissions' },
+                        { key: 'DELETE_ROLE', label: 'Delete a Custom Role' },
+                        { key: 'CLONE_ROLE', label: 'Clone / Duplicate an Existing Role' },
+                        { key: 'MANAGE_ROLES', label: 'Full Role Management Access' },
+                        { key: 'MANAGE_USERS', label: 'Manage User Accounts' },
+                        { key: 'ASSIGN_ROLES', label: 'Assign Roles to Users' },
+                    ]},
                 ],
             },
             {
                 group: 'Network Security',
                 route: '/dashboard/security',
-                perms: [
-                    { key: 'VIEW_SECURITY_SETTINGS', label: 'View Network Security Settings' },
-                    { key: 'MANAGE_NETWORK_SECURITY', label: 'Full Network Security Management' },
-                    { key: 'ENABLE_DISABLE_IP_RESTRICTION', label: 'Enable / Disable IP Restriction' },
-                    { key: 'MANAGE_ALLOWLISTED_IPS', label: 'Manage Allowlisted IPs & Networks' },
-                    { key: 'MANAGE_EXEMPT_ROLES', label: 'Manage Roles Exempt from Restriction' },
-                    { key: 'VIEW_SECURITY_LOGS', label: 'View Security Event Logs' },
+                subGroups: [
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_SECURITY_SETTINGS', label: 'View Network Security Settings' },
+                        { key: 'MANAGE_NETWORK_SECURITY', label: 'Full Network Security Management' },
+                        { key: 'ENABLE_DISABLE_IP_RESTRICTION', label: 'Enable / Disable IP Restriction' },
+                        { key: 'MANAGE_ALLOWLISTED_IPS', label: 'Manage Allowlisted IPs & Networks' },
+                        { key: 'MANAGE_EXEMPT_ROLES', label: 'Manage Roles Exempt from Restriction' },
+                        { key: 'VIEW_SECURITY_LOGS', label: 'View Security Event Logs' },
+                    ]},
                 ],
             },
             {
                 group: 'Audit Logs',
                 route: '/dashboard/audit',
-                perms: [
-                    { key: 'VIEW_AUDIT_LOGS', label: 'Access the Audit Logs Page' },
-                    { key: 'VIEW_ALL_AUDIT_LOGS', label: 'View All Audit Entries' },
-                    { key: 'FILTER_AUDIT_BY_MODULE', label: 'Filter Audit Logs by Module / Action' },
-                    { key: 'EXPORT_AUDIT_LOGS', label: 'Export Audit Log Data' },
+                subGroups: [
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_AUDIT_LOGS', label: 'Access the Audit Logs Page' },
+                        { key: 'VIEW_ALL_AUDIT_LOGS', label: 'View All Audit Entries' },
+                        { key: 'FILTER_AUDIT_BY_MODULE', label: 'Filter Audit Logs by Module / Action' },
+                        { key: 'EXPORT_AUDIT_LOGS', label: 'Export Audit Log Data' },
+                    ]},
                 ],
             },
             {
                 group: 'System Settings',
                 route: '/dashboard/settings',
-                perms: [
-                    { key: 'VIEW_SYSTEM_SETTINGS', label: 'View System Settings Page' },
-                    { key: 'MANAGE_SYSTEM_SETTINGS', label: 'Full System Settings Access' },
-                    { key: 'MANAGE_COMPANY_INFO', label: 'Manage Company Information' },
-                    { key: 'MANAGE_APPROVAL_WORKFLOW_CONFIG', label: 'Configure Approval Workflow Settings' },
-                    { key: 'MANAGE_NOTIFICATION_SETTINGS', label: 'Manage Notification Preferences' },
+                subGroups: [
+                    { label: 'For All', icon: '👥', perms: [
+                        { key: 'VIEW_SYSTEM_SETTINGS', label: 'View System Settings Page' },
+                        { key: 'MANAGE_SYSTEM_SETTINGS', label: 'Full System Settings Access' },
+                        { key: 'MANAGE_COMPANY_INFO', label: 'Manage Company Information' },
+                        { key: 'MANAGE_APPROVAL_WORKFLOW_CONFIG', label: 'Configure Approval Workflow Settings' },
+                        { key: 'MANAGE_NOTIFICATION_SETTINGS', label: 'Manage Notification Preferences' },
+                    ]},
                 ],
             },
         ],
@@ -431,8 +490,13 @@ function RolesContent() {
         setCollapsedSections(prev => ({ ...prev, [sectionName]: !prev[sectionName] }));
     }
 
+    // Get all perms from a group (supports both old perms[] and new subGroups[] format)
+    function getGroupPerms(g) {
+        return g.subGroups ? g.subGroups.flatMap(sg => sg.perms) : (g.perms || []);
+    }
+
     function getSectionStats(groups) {
-        const all = groups.flatMap(g => g.perms);
+        const all = groups.flatMap(g => getGroupPerms(g));
         const enabled = all.filter(p => !!editingPerms[getPermValue(p.key)]).length;
         return { enabled, total: all.length };
     }
@@ -446,8 +510,22 @@ function RolesContent() {
         if (!searchTerm) return groups;
         const q = searchTerm.toLowerCase();
         return groups
-            .map(g => ({ ...g, perms: g.perms.filter(p => p.label.toLowerCase().includes(q) || g.group.toLowerCase().includes(q)) }))
-            .filter(g => g.perms.length > 0);
+            .map(g => {
+                if (g.subGroups) {
+                    const filteredSGs = g.subGroups
+                        .map(sg => ({ ...sg, perms: sg.perms.filter(p => p.label.toLowerCase().includes(q) || g.group.toLowerCase().includes(q) || sg.label.toLowerCase().includes(q)) }))
+                        .filter(sg => sg.perms.length > 0);
+                    return { ...g, subGroups: filteredSGs };
+                }
+                return { ...g, perms: g.perms.filter(p => p.label.toLowerCase().includes(q) || g.group.toLowerCase().includes(q)) };
+            })
+            .filter(g => g.subGroups ? g.subGroups.length > 0 : g.perms.length > 0);
+    }
+
+    // Normalize group to always have subGroups for rendering
+    function normalizeGroup(g) {
+        if (g.subGroups) return g;
+        return { ...g, subGroups: [{ label: 'For All', icon: '👥', perms: g.perms || [] }] };
     }
 
     const totalPerms = Object.keys(PERMISSIONS).length;
@@ -676,7 +754,7 @@ function RolesContent() {
                                         const filteredGroups = filterGroups(groups);
                                         if (filteredGroups.length === 0) return null;
 
-                                        const allSectionPerms = filteredGroups.flatMap(g => g.perms);
+                                        const allSectionPerms = filteredGroups.flatMap(g => getGroupPerms(g));
                                         const stats = getSectionStats(groups);
                                         const color = SECTION_COLORS[section];
                                         const isCollapsed = collapsedSections[section];
@@ -684,7 +762,6 @@ function RolesContent() {
 
                                         return (
                                             <div key={section} style={{ marginBottom: 10, borderRadius: 'var(--radius-lg)', border: `1px solid ${color.border}`, overflow: 'hidden' }}>
-                                                {/* Section header */}
                                                 <div
                                                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: color.light, cursor: 'pointer', userSelect: 'none' }}
                                                     onClick={() => toggleSectionCollapse(section)}
@@ -697,25 +774,23 @@ function RolesContent() {
                                                         </span>
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                        <button
-                                                            className="btn btn-ghost"
-                                                            onClick={e => { e.stopPropagation(); toggleSection(allSectionPerms); }}
-                                                            style={{ fontSize: '0.67rem', color: color.bg, background: `${color.bg}14`, border: `1px solid ${color.border}`, padding: '2px 10px', height: 24, fontWeight: 700 }}
-                                                        >
+                                                        <button className="btn btn-ghost" onClick={e => { e.stopPropagation(); toggleSection(allSectionPerms); }} style={{ fontSize: '0.67rem', color: color.bg, background: `${color.bg}14`, border: `1px solid ${color.border}`, padding: '2px 10px', height: 24, fontWeight: 700 }}>
                                                             {allSectionIn ? 'Deselect All' : 'Select All'}
                                                         </button>
                                                         {isCollapsed ? <ChevronRight size={15} color={color.bg} /> : <ChevronDown size={15} color={color.bg} />}
                                                     </div>
                                                 </div>
 
-                                                {/* Groups */}
                                                 {!isCollapsed && (
                                                     <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                                        {filteredGroups.map(({ group, route, perms }) => {
-                                                            const gStats = getGroupStats(perms);
-                                                            const allGroupIn = perms.every(p => !!editingPerms[getPermValue(p.key)]);
+                                                        {filteredGroups.map(rawGroup => {
+                                                            const { group, route, subGroups } = normalizeGroup(rawGroup);
+                                                            const allGroupPerms = subGroups.flatMap(sg => sg.perms);
+                                                            const gStats = getGroupStats(allGroupPerms);
+                                                            const allGroupIn = allGroupPerms.every(p => !!editingPerms[getPermValue(p.key)]);
                                                             return (
                                                                 <div key={group} style={{ borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
+                                                                    {/* Group header */}
                                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 12px', background: 'var(--bg-glass)' }}>
                                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                                                                             <Layers size={12} color={color.bg} />
@@ -723,46 +798,48 @@ function RolesContent() {
                                                                             <code style={{ fontSize: '0.62rem', color: 'var(--text-muted)', background: 'var(--bg-glass)', padding: '1px 5px', borderRadius: 3 }}>{route}</code>
                                                                             <span style={{ fontSize: '0.65rem', color: color.bg, fontWeight: 600 }}>{gStats.enabled}/{gStats.total}</span>
                                                                         </div>
-                                                                        <button
-                                                                            className="btn btn-ghost"
-                                                                            onClick={() => toggleGroup(perms)}
-                                                                            style={{ fontSize: '0.64rem', color: color.bg, background: `${color.bg}10`, border: `1px solid ${color.border}`, padding: '1px 8px', height: 22, fontWeight: 600 }}
-                                                                        >
+                                                                        <button className="btn btn-ghost" onClick={() => toggleGroup(allGroupPerms)} style={{ fontSize: '0.64rem', color: color.bg, background: `${color.bg}10`, border: `1px solid ${color.border}`, padding: '1px 8px', height: 22, fontWeight: 600 }}>
                                                                             {allGroupIn ? 'Deselect All' : 'Select All'}
                                                                         </button>
                                                                     </div>
-                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 5, padding: '8px 12px' }}>
-                                                                        {perms.map(({ key, label }) => {
-                                                                            const permValue = getPermValue(key);
-                                                                            const hasIt = !!editingPerms[permValue];
-                                                                            return (
-                                                                                <label
-                                                                                    key={key}
-                                                                                    onClick={() => togglePerm(permValue)}
-                                                                                    style={{
-                                                                                        display: 'flex', alignItems: 'flex-start', gap: 9,
-                                                                                        padding: '7px 10px', borderRadius: 'var(--radius-md)',
-                                                                                        border: `1px solid ${hasIt ? color.border : 'var(--border-subtle)'}`,
-                                                                                        background: hasIt ? color.light : 'transparent',
-                                                                                        cursor: 'pointer', transition: 'all 0.12s', userSelect: 'none',
-                                                                                    }}
-                                                                                >
-                                                                                    <div style={{
-                                                                                        width: 16, height: 16, borderRadius: 4, flexShrink: 0, marginTop: 1,
-                                                                                        border: `2px solid ${hasIt ? color.bg : 'var(--border-default)'}`,
-                                                                                        background: hasIt ? color.bg : 'transparent',
-                                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                                        transition: 'all 0.12s',
-                                                                                    }}>
-                                                                                        {hasIt && <Check size={9} color="white" strokeWidth={3} />}
+                                                                    {/* SubGroups */}
+                                                                    {subGroups.map(({ label: sgLabel, icon: sgIcon, perms: sgPerms }) => {
+                                                                        if (!sgPerms || sgPerms.length === 0) return null;
+                                                                        const sgStats = getGroupStats(sgPerms);
+                                                                        const allSgIn = sgPerms.every(p => !!editingPerms[getPermValue(p.key)]);
+                                                                        const isOwn = sgLabel === 'For Own';
+                                                                        const sgColor = isOwn ? '#10b981' : '#6366f1';
+                                                                        const sgBg = isOwn ? 'rgba(16,185,129,0.06)' : 'rgba(99,102,241,0.06)';
+                                                                        const sgBorder = isOwn ? 'rgba(16,185,129,0.18)' : 'rgba(99,102,241,0.18)';
+                                                                        return (
+                                                                            <div key={sgLabel}>
+                                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 12px', background: sgBg, borderTop: '1px solid var(--border-subtle)' }}>
+                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                                                        <span style={{ fontSize: '0.8rem' }}>{sgIcon}</span>
+                                                                                        <span style={{ fontSize: '0.68rem', fontWeight: 800, color: sgColor, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{sgLabel}</span>
+                                                                                        <span style={{ fontSize: '0.61rem', color: sgColor, fontWeight: 600, background: `${sgColor}14`, padding: '0px 6px', borderRadius: 8, border: `1px solid ${sgBorder}` }}>{sgStats.enabled}/{sgStats.total}</span>
                                                                                     </div>
-                                                                                    <span style={{ fontSize: '0.76rem', color: hasIt ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: hasIt ? 600 : 400, lineHeight: 1.35 }}>
-                                                                                        {label}
-                                                                                    </span>
-                                                                                </label>
-                                                                            );
-                                                                        })}
-                                                                    </div>
+                                                                                    <button className="btn btn-ghost" onClick={() => toggleGroup(sgPerms)} style={{ fontSize: '0.6rem', color: sgColor, background: `${sgColor}10`, border: `1px solid ${sgBorder}`, padding: '1px 7px', height: 20, fontWeight: 600 }}>
+                                                                                        {allSgIn ? 'Deselect' : 'Select All'}
+                                                                                    </button>
+                                                                                </div>
+                                                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 5, padding: '8px 12px' }}>
+                                                                                    {sgPerms.map(({ key, label }) => {
+                                                                                        const permValue = getPermValue(key);
+                                                                                        const hasIt = !!editingPerms[permValue];
+                                                                                        return (
+                                                                                            <label key={key} onClick={() => togglePerm(permValue)} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '7px 10px', borderRadius: 'var(--radius-md)', border: `1px solid ${hasIt ? color.border : 'var(--border-subtle)'}`, background: hasIt ? color.light : 'transparent', cursor: 'pointer', transition: 'all 0.12s', userSelect: 'none' }}>
+                                                                                                <div style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, marginTop: 1, border: `2px solid ${hasIt ? color.bg : 'var(--border-default)'}`, background: hasIt ? color.bg : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.12s' }}>
+                                                                                                    {hasIt && <Check size={9} color="white" strokeWidth={3} />}
+                                                                                                </div>
+                                                                                                <span style={{ fontSize: '0.76rem', color: hasIt ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: hasIt ? 600 : 400, lineHeight: 1.35 }}>{label}</span>
+                                                                                            </label>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
                                                                 </div>
                                                             );
                                                         })}

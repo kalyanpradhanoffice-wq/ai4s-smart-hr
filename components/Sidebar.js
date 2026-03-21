@@ -4,13 +4,15 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useApp } from '@/lib/AppContext';
 import { can } from '@/lib/rbac';
-import { PERMISSIONS } from '@/lib/mockData';
+import { PERMISSIONS } from '@/lib/constants';
 import {
     LayoutDashboard, Users, Clock, Calendar, DollarSign, Target, TrendingUp,
     UserPlus, UserMinus, Shield, Settings, Key, Bell, LogOut, ChevronDown,
     Wifi, ClipboardList, Award, AlertCircle, FileText, Building, Database, UserCheck,
 } from 'lucide-react';
 
+// Each item can have a single `permission` string OR a `permissions` array (OR logic).
+// If `roles` is specified, item is only visible to those roles (in addition to super_admin).
 const NAV_SECTIONS = [
     {
         title: 'Overview',
@@ -26,40 +28,40 @@ const NAV_SECTIONS = [
         title: 'Workforce',
         items: [
             { label: 'Employees', icon: Users, href: '/dashboard/employees', permission: PERMISSIONS.VIEW_ALL_EMPLOYEES },
-            { label: 'Onboarding', icon: UserPlus, href: '/dashboard/onboarding', permission: PERMISSIONS.MANAGE_ONBOARDING },
-            { label: 'Offboarding', icon: UserMinus, href: '/dashboard/offboarding', permission: PERMISSIONS.MANAGE_OFFBOARDING },
-            { label: 'Interviews', icon: UserCheck, href: '/dashboard/interviews', permission: PERMISSIONS.MANAGE_ONBOARDING },
+            { label: 'Onboarding', icon: UserPlus, href: '/dashboard/onboarding', permissions: [PERMISSIONS.MANAGE_ONBOARDING, PERMISSIONS.VIEW_ONBOARDING_LIST] },
+            { label: 'Offboarding', icon: UserMinus, href: '/dashboard/offboarding', permissions: [PERMISSIONS.MANAGE_OFFBOARDING, PERMISSIONS.VIEW_OFFBOARDING_LIST] },
+            { label: 'Interviews', icon: UserCheck, href: '/dashboard/interviews', permissions: [PERMISSIONS.MANAGE_INTERVIEW_PIPELINE, PERMISSIONS.VIEW_INTERVIEW_SCHEDULE] },
         ],
     },
     {
         title: 'Operations',
         items: [
-            { label: 'Attendance', icon: Clock, href: '/dashboard/attendance', permission: PERMISSIONS.MARK_ATTENDANCE },
-            { label: 'Leave Management', icon: Calendar, href: '/dashboard/leaves', permission: PERMISSIONS.APPLY_LEAVE },
-            { label: 'Approvals', icon: ClipboardList, href: '/dashboard/approvals', permission: PERMISSIONS.APPROVE_LEAVE },
+            { label: 'Attendance', icon: Clock, href: '/dashboard/attendance', permissions: [PERMISSIONS.MARK_ATTENDANCE, PERMISSIONS.VIEW_OWN_ATTENDANCE, PERMISSIONS.VIEW_ALL_ATTENDANCE, PERMISSIONS.VIEW_TEAM_ATTENDANCE] },
+            { label: 'Leave Management', icon: Calendar, href: '/dashboard/leaves', permissions: [PERMISSIONS.APPLY_LEAVE, PERMISSIONS.VIEW_OWN_LEAVE_BALANCE, PERMISSIONS.VIEW_ALL_LEAVES, PERMISSIONS.VIEW_TEAM_LEAVES] },
+            { label: 'Approvals', icon: ClipboardList, href: '/dashboard/approvals', permissions: [PERMISSIONS.APPROVE_LEAVE, PERMISSIONS.VIEW_PENDING_APPROVALS, PERMISSIONS.APPROVE_ANY_REQUEST] },
         ],
     },
     {
         title: 'Finance',
         items: [
-            { label: 'Payroll', icon: DollarSign, href: '/dashboard/payroll', permission: PERMISSIONS.VIEW_OWN_PAYSLIP },
-            { label: 'Loans & Advances', icon: FileText, href: '/dashboard/loans', permission: PERMISSIONS.APPLY_LOAN },
+            { label: 'Payroll', icon: DollarSign, href: '/dashboard/payroll', permissions: [PERMISSIONS.VIEW_OWN_PAYSLIP, PERMISSIONS.VIEW_ALL_PAYSLIPS, PERMISSIONS.RUN_PAYROLL] },
+            { label: 'Loans & Advances', icon: FileText, href: '/dashboard/loans', permissions: [PERMISSIONS.APPLY_LOAN, PERMISSIONS.VIEW_OWN_LOANS, PERMISSIONS.VIEW_ALL_LOANS] },
         ],
     },
     {
         title: 'Growth',
         items: [
-            { label: 'OKRs', icon: Target, href: '/dashboard/okr', permission: PERMISSIONS.VIEW_OWN_OKR },
-            { label: '360° Feedback', icon: Award, href: '/dashboard/feedback', permission: PERMISSIONS.SUBMIT_FEEDBACK },
+            { label: 'OKRs', icon: Target, href: '/dashboard/okr', permissions: [PERMISSIONS.VIEW_OWN_OKR, PERMISSIONS.MANAGE_OKR, PERMISSIONS.VIEW_ALL_OKR] },
+            { label: '360° Feedback', icon: Award, href: '/dashboard/feedback', permissions: [PERMISSIONS.SUBMIT_FEEDBACK, PERMISSIONS.VIEW_FEEDBACK, PERMISSIONS.VIEW_ALL_FEEDBACK] },
         ],
     },
     {
         title: 'Administration',
         items: [
-            { label: 'Role Management', icon: Shield, href: '/dashboard/roles', permission: PERMISSIONS.MANAGE_ROLES },
-            { label: 'Network Security', icon: Wifi, href: '/dashboard/security', permission: PERMISSIONS.MANAGE_NETWORK_SECURITY },
-            { label: 'Audit Logs', icon: Database, href: '/dashboard/audit', permission: PERMISSIONS.VIEW_AUDIT_LOGS, roles: ['super_admin'] },
-            { label: 'System Settings', icon: Settings, href: '/dashboard/settings', permission: PERMISSIONS.MANAGE_APPROVAL_WORKFLOWS },
+            { label: 'Role Management', icon: Shield, href: '/dashboard/roles', permissions: [PERMISSIONS.MANAGE_ROLES, PERMISSIONS.VIEW_ROLES] },
+            { label: 'Network Security', icon: Wifi, href: '/dashboard/security', permissions: [PERMISSIONS.MANAGE_NETWORK_SECURITY, PERMISSIONS.VIEW_SECURITY_SETTINGS] },
+            { label: 'Audit Logs', icon: Database, href: '/dashboard/audit', permission: PERMISSIONS.VIEW_AUDIT_LOGS },
+            { label: 'System Settings', icon: Settings, href: '/dashboard/settings', permissions: [PERMISSIONS.MANAGE_SYSTEM_SETTINGS, PERMISSIONS.VIEW_SYSTEM_SETTINGS, PERMISSIONS.MANAGE_APPROVAL_WORKFLOWS] },
         ],
     },
 ];
@@ -95,6 +97,10 @@ export default function Sidebar({ customRoles }) {
                         if (isSuperAdmin) return true;
                         if (!currentUser) return false;
                         if (item.roles && !item.roles.includes(userRole)) return false;
+                        // Support both single permission and permissions array (OR logic)
+                        if (item.permissions) {
+                            return item.permissions.some(p => can(currentUser, p, customRoles || []));
+                        }
                         return can(currentUser, item.permission, customRoles || []);
                     });
                     if (visibleItems.length === 0) return null;
