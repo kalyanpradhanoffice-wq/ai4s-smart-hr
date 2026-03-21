@@ -58,7 +58,7 @@ export async function POST(req) {
 
     if (profileError) throw profileError;
 
-    return NextResponse.json({ success: true, user: authUser.user });
+    return NextResponse.json({ success: true, user: { ...authUser.user, employee_id } });
   } catch (error) {
     console.error('Admin Create User Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

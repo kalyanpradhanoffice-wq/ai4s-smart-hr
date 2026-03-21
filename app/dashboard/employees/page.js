@@ -86,6 +86,9 @@ function EmployeesContent() {
     const [showEditModal, setShowEditModal] = useState(null);
     const [editForm, setEditForm] = useState({});
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [creationSuccess, setCreationSuccess] = useState(null);
+
     const canResetPwd = can(currentUser, PERMISSIONS.RESET_PASSWORDS, customRoles);
     const canEdit = can(currentUser, PERMISSIONS.EDIT_EMPLOYEE, customRoles);
     const canCreate = can(currentUser, PERMISSIONS.CREATE_EMPLOYEE, customRoles);
@@ -110,6 +113,7 @@ function EmployeesContent() {
 
     async function handleAddEmployee(e) {
         e.preventDefault();
+        setIsSubmitting(true);
         const { salaryBasic, salaryHra, ...rest } = newEmpForm;
 
         // Generate initials for avatar
@@ -129,10 +133,13 @@ function EmployeesContent() {
             }
         };
 
-        const { success, error, user } = await createUser(userData);
+        const { success, error, user, employee_id } = await createUser(userData);
         
         if (success) {
-            setShowAddModal(false);
+            const finalEmpId = employee_id || user?.employee_id || previewEmpId;
+            setCreationSuccess({ id: finalEmpId, name: rest.name, userRecord: user });
+            addToast(`Employee Created: ${finalEmpId}`, "success", "✅");
+            
             setNewEmpForm({
                 name: '', email: '', password: '', role: 'employee',
                 department: 'Technical', designation: 'Developer Admin - Accounts', type: 'Confirm',
@@ -140,17 +147,10 @@ function EmployeesContent() {
                 salaryBasic: '', salaryHra: '',
                 phone: '', location: '', dob: '', gender: '', pan: '', managerId: ''
             });
-            addToast("Employee created successfully!", "success", "✅");
-            
-            if (confirm("Would you like to start their Onboarding KYC now?")) {
-                if (user?.id) {
-                    setSelectedLifecycleEmp(user.id);
-                    setLifecycleView('onboarding');
-                }
-            }
         } else {
             addToast("Error: " + error, "error", "❌");
         }
+        setIsSubmitting(false);
     }
 
     function handleEditClick(emp) {
@@ -451,10 +451,50 @@ function EmployeesContent() {
                             </div>
 
                             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                                <button type="button" className="btn btn-ghost" onClick={() => setShowAddModal(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary"><UserPlus size={15} /> Create Profile ({previewEmpId})</button>
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowAddModal(false)} disabled={isSubmitting}>Cancel</button>
+                                <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                                    {isSubmitting ? <><div className="spinner" style={{ width: 14, height: 14, borderTopColor: 'white' }} /> Creating...</> : <><UserPlus size={15} /> Create Profile ({previewEmpId})</>}
+                                </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Success Confirmation Modal */}
+            {creationSuccess && (
+                <div className="modal-overlay">
+                    <div className="modal-box" style={{ maxWidth: 400, textAlign: 'center', padding: 40 }}>
+                        <div style={{ width: 64, height: 64, background: 'rgba(16,185,129,0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: '#10b981' }}>
+                            <CheckCircle size={40} />
+                        </div>
+                        <h2 style={{ marginBottom: 8 }}>Profile Created!</h2>
+                        <p style={{ marginBottom: 24, fontSize: '0.9rem' }}>Employee <strong style={{color: 'var(--text-primary)'}}>{creationSuccess.name}</strong> has been added successfully.</p>
+                        
+                        <div style={{ background: 'var(--bg-base)', padding: 16, borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-default)', marginBottom: 32 }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>System Employee ID</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--brand-primary-light)', fontFamily: 'monospace' }}>{creationSuccess.id}</div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => {
+                                const userId = creationSuccess.userRecord?.id;
+                                setCreationSuccess(null);
+                                setShowAddModal(false);
+                                if (userId) {
+                                    setSelectedLifecycleEmp(userId);
+                                    setLifecycleView('onboarding');
+                                }
+                            }}>
+                                <FileCheck size={16} /> Start Onboarding KYC
+                            </button>
+                            <button className="btn btn-ghost" style={{ width: '100%' }} onClick={() => {
+                                setCreationSuccess(null);
+                                setShowAddModal(false);
+                            }}>
+                                Skip for Now
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
