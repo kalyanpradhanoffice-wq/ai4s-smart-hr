@@ -96,7 +96,6 @@ const NAV_SECTIONS = [
                         { key: 'VIEW_INACTIVE_EMPLOYEES', label: 'View Inactive / Retired Employees' },
                         { key: 'FILTER_EMPLOYEES_BY_DEPT', label: 'Filter by Department / Role' },
                         { key: 'EXPORT_EMPLOYEE_DATA', label: 'Export Employee Data (CSV)' },
-                        { key: 'CREATE_EMPLOYEE', label: 'Add New Employee Account' },
                         { key: 'EDIT_EMPLOYEE', label: 'Edit Employee Profile Details' },
                         { key: 'EDIT_EMPLOYEE_SALARY', label: 'Edit Employee Salary Figures' },
                         { key: 'DEACTIVATE_EMPLOYEE', label: 'Deactivate / Retire Employee' },
@@ -107,10 +106,11 @@ const NAV_SECTIONS = [
                 ],
             },
             {
-                group: 'Onboarding',
-                route: '/dashboard/onboarding',
+                group: 'Lifecycle & Onboarding',
+                route: '/dashboard/employees',
                 subGroups: [
                     { label: 'For All', icon: '👥', perms: [
+                        { key: 'CREATE_EMPLOYEE', label: 'Add New Employee (Hiring)' },
                         { key: 'VIEW_ONBOARDING_LIST', label: 'View Onboarding Employee List' },
                         { key: 'VIEW_ONBOARDING_PROGRESS', label: 'View KYC / Document Progress' },
                         { key: 'INITIATE_ONBOARDING', label: 'Initiate Onboarding for an Employee' },
@@ -121,8 +121,8 @@ const NAV_SECTIONS = [
                 ],
             },
             {
-                group: 'Offboarding',
-                route: '/dashboard/onboarding#offboarding',
+                group: 'Lifecycle & Offboarding',
+                route: '/dashboard/employees',
                 subGroups: [
                     { label: 'For All', icon: '👥', perms: [
                         { key: 'VIEW_OFFBOARDING_LIST', label: 'View Departing Employee List' },
@@ -454,9 +454,13 @@ function RolesContent() {
 
     async function handleDeleteRole(roleId) {
         if (!confirm('Delete this role? Users assigned to it will fall back to Employee access.')) return;
-        await deleteRole(roleId);
-        setSelectedRole(null);
-        addToast('Custom role deleted', 'info');
+        const { success, error } = await deleteRole(roleId);
+        if (success) {
+            setSelectedRole(null);
+            addToast('Custom role deleted successfully', 'info', '🗑️');
+        } else {
+            addToast(`Delete failed: ${error}`, 'error', '❌');
+        }
     }
 
     async function handleCloneRole() {

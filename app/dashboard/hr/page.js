@@ -2,8 +2,9 @@
 import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useRouter } from 'next/navigation';
-import { Users, Clock, CheckCheck, AlertTriangle, TrendingUp, DollarSign, Activity, Shield, FileText, Star } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
+import { useState } from 'react';
+import { Users, Clock, CheckCheck, AlertTriangle, TrendingUp, DollarSign, Activity, Shield, FileText, Star, Briefcase } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, Cell } from 'recharts';
 
 const payrollTrend = [
     { month: 'Oct', amount: 620000 }, { month: 'Nov', amount: 635000 }, { month: 'Dec', amount: 680000 },
@@ -30,6 +31,21 @@ function HRContent() {
         { label: 'Professional Tax', status: 'green', due: 'Mar 31, 2025' },
         { label: 'Labour Welfare Fund', status: 'green', due: 'Mar 31, 2025' },
     ];
+
+    // --- Analytics Transformation ---
+    const deptHeadcount = users.reduce((acc, user) => {
+        const dept = user.department || 'Unassigned';
+        if (!acc[dept]) {
+            acc[dept] = { name: dept, total: 0, designations: {} };
+        }
+        acc[dept].total++;
+        const desg = user.designation || 'Staff';
+        acc[dept].designations[desg] = (acc[dept].designations[desg] || 0) + 1;
+        return acc;
+    }, {});
+
+    const chartData = Object.values(deptHeadcount).sort((a, b) => b.total - a.total);
+    const chartColors = ['#6366f1', '#10b981', '#f59e0b', '#0ea5e9', '#8b5cf6', '#f43f5e', '#ec4899'];
 
     return (
         <div className="animate-fade-in">
@@ -69,6 +85,55 @@ function HRContent() {
                         <div style={{ marginTop: 8, fontSize: '0.7rem', color: s.color, fontWeight: 600 }}>Click to view →</div>
                     </div>
                 ))}
+            </div>
+
+            {/* Analytics Section */}
+            <div className="grid-2" style={{ marginBottom: 28 }}>
+                <div className="card">
+                    <div style={{ marginBottom: 20 }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 4 }}>Headcount by Department</h3>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Top departments by employee volume</p>
+                    </div>
+                    <ResponsiveContainer width="100%" height={260}>
+                        <BarChart data={chartData} layout="vertical">
+                            <XAxis type="number" hide />
+                            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} width={100} />
+                            <Tooltip 
+                                cursor={{ fill: 'transparent' }}
+                                contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 12 }}
+                            />
+                            <Bar dataKey="total" radius={[0, 6, 6, 0]} barSize={24}>
+                                {chartData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+
+                <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ marginBottom: 20 }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 4 }}>Designation Breakdown</h3>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Distribution across core roles</p>
+                    </div>
+                    <div className="scroll-y" style={{ flex: 1, maxHeight: 260 }}>
+                        {chartData.map(dept => (
+                            <div key={dept.name} style={{ marginBottom: 16 }}>
+                                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <Briefcase size={12} /> {dept.name}
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                    {Object.entries(dept.designations).map(([desg, count]) => (
+                                        <div key={desg} style={{ padding: '4px 10px', background: 'var(--bg-glass)', border: '1px solid var(--border-subtle)', borderRadius: 100, fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <span style={{ fontWeight: 600 }}>{desg}:</span>
+                                            <span style={{ color: 'var(--text-accent)', fontWeight: 700 }}>{count}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             <div className="grid-2" style={{ marginBottom: 28 }}>

@@ -28,8 +28,6 @@ const NAV_SECTIONS = [
         title: 'Workforce',
         items: [
             { label: 'Employees', icon: Users, href: '/dashboard/employees', permission: PERMISSIONS.VIEW_ALL_EMPLOYEES },
-            { label: 'Onboarding', icon: UserPlus, href: '/dashboard/onboarding', permissions: [PERMISSIONS.MANAGE_ONBOARDING, PERMISSIONS.VIEW_ONBOARDING_LIST] },
-            { label: 'Offboarding', icon: UserMinus, href: '/dashboard/offboarding', permissions: [PERMISSIONS.MANAGE_OFFBOARDING, PERMISSIONS.VIEW_OFFBOARDING_LIST] },
             { label: 'Interviews', icon: UserCheck, href: '/dashboard/interviews', permissions: [PERMISSIONS.MANAGE_INTERVIEW_PIPELINE, PERMISSIONS.VIEW_INTERVIEW_SCHEDULE] },
         ],
     },

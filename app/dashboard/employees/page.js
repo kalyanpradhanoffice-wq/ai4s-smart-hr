@@ -1,44 +1,72 @@
 'use client';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { can, getRoleMeta } from '@/lib/rbac';
-import { PERMISSIONS } from '@/lib/constants';
-import { Plus, Search, Mail, Phone, Edit2, Key, Filter, UserPlus, Trash2 } from 'lucide-react';
-
-const DEPARTMENTS = ['Technical', 'Functional', 'Techno-Functional'];
-const DESIGNATIONS = [
-    'Chief Executive Officer(CEO)',
-    'Chief Development Officer(CDO)',
-    'Developer Admin - Accounts',
-    'Administration',
-    'Associate HR',
-    'Associate MM Consultant',
-    'Associate FICO Consultant',
-    'Associate SucessFactor Consultant',
-    'SAP Cloud Platform & System Architect',
-    'SAP BTP Solution Architect',
-    'SAP Cloud ALM Administrator',
-    'SAP Build App Developer',
-    'SAP Integration Architect',
-    'SAP Full Stack Solution Developer',
-    'Social Media Manger',
-    'SAP CAPM Developer',
-    'CAPM Developer',
-    'AI/ML',
-    'SAP - ABAP Trainee',
-    'SAP BASIS Intern'
-];
-const EMPLOYEE_TYPES = ['Trainee', 'Confirm'];
+import { PERMISSIONS, DEPARTMENTS, DESIGNATIONS, EMPLOYEE_TYPES, calculateGratuity } from '@/lib/constants';
+import { ONBOARDING_DOCUMENTS, OFFBOARDING_CLEARANCES } from '@/lib/mockData';
+import { Plus, Search, Mail, Phone, Edit2, Key, Filter, UserPlus, Trash2, Activity, FileCheck, CheckCircle, Circle, AlertCircle, FileText, Award, CheckCheck, UserMinus, ToggleLeft, ToggleRight } from 'lucide-react';
 
 function EmployeesContent() {
-    const { currentUser, users, customRoles, resetPassword, createUser, updateUser, deactivateUser, deleteUser } = useApp();
+    const { currentUser, users, customRoles, resetPassword, createUser, updateUser, deactivateUser, activateUser, deleteUser, updateOnboardingKYC, finalizeOnboarding, updateOffboardingClearance, addToast } = useApp();
     const [search, setSearch] = useState('');
     const [deptFilter, setDeptFilter] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
     const [showResetModal, setShowResetModal] = useState(null);
     const [newPassword, setNewPassword] = useState('');
+
+    // Lifecycle Management State
+    const [selectedLifecycleEmp, setSelectedLifecycleEmp] = useState(null);
+    const [lifecycleView, setLifecycleView] = useState('onboarding'); // 'onboarding' | 'offboarding'
+    const [docs, setDocs] = useState({});
+    const [clearances, setClearances] = useState({});
     const [resetSuccess, setResetSuccess] = useState(false);
+
+    const lifecycleEmp = users.find(u => u.id === selectedLifecycleEmp);
+
+    useEffect(() => {
+        if (lifecycleEmp) {
+            // Sync Onboarding Docs
+            if (lifecycleEmp.onboarding_status) {
+                setDocs(lifecycleEmp.onboarding_status);
+            } else {
+                setDocs(Object.fromEntries(ONBOARDING_DOCUMENTS.map(d => [d.id, false])));
+            }
+            // Sync Offboarding Clearances
+            if (lifecycleEmp.offboarding_status) {
+                setClearances(lifecycleEmp.offboarding_status);
+            } else {
+                setClearances(Object.fromEntries(OFFBOARDING_CLEARANCES.map(c => [c.id, false])));
+            }
+        }
+    }, [lifecycleEmp]);
+
+    const handleLifecycleDocChange = async (docId, checked) => {
+        const newDocs = { ...docs, [docId]: checked };
+        setDocs(newDocs);
+        if (selectedLifecycleEmp) {
+            await updateOnboardingKYC(selectedLifecycleEmp, newDocs);
+        }
+    };
+
+    const handleLifecycleClearanceChange = async (clearanceId, checked) => {
+        const newClearances = { ...clearances, [clearanceId]: checked };
+        setClearances(newClearances);
+        if (selectedLifecycleEmp) {
+            await updateOffboardingClearance(selectedLifecycleEmp, newClearances);
+        }
+    };
+
+    const handleFinalizeOnboarding = async () => {
+        if (selectedLifecycleEmp) {
+            await finalizeOnboarding(selectedLifecycleEmp);
+            setSelectedLifecycleEmp(null);
+            alert('Employee onboarding finalized. Status updated to Active.');
+        }
+    };
+
+    const gratuity = (lifecycleEmp && lifecycleView === 'offboarding') ? calculateGratuity(lifecycleEmp.salary?.basic || 0, lifecycleEmp.joinDate) : null;
+    const allDocsClear = ONBOARDING_DOCUMENTS.filter(d => d.required).every(d => docs[d.id]);
 
     // Add Employee State
     const [showAddModal, setShowAddModal] = useState(false);
@@ -101,7 +129,7 @@ function EmployeesContent() {
             }
         };
 
-        const { success, error } = await createUser(userData);
+        const { success, error, user } = await createUser(userData);
         
         if (success) {
             setShowAddModal(false);
@@ -112,9 +140,16 @@ function EmployeesContent() {
                 salaryBasic: '', salaryHra: '',
                 phone: '', location: '', dob: '', gender: '', pan: '', managerId: ''
             });
-            alert("Employee created and registered successfully!");
+            addToast("Employee created successfully!", "success", "✅");
+            
+            if (confirm("Would you like to start their Onboarding KYC now?")) {
+                if (user?.id) {
+                    setSelectedLifecycleEmp(user.id);
+                    setLifecycleView('onboarding');
+                }
+            }
         } else {
-            alert("Error: " + error);
+            addToast("Error: " + error, "error", "❌");
         }
     }
 
@@ -130,7 +165,7 @@ function EmployeesContent() {
         setShowEditModal(emp);
     }
 
-    function handleEditSubmit(e) {
+    async function handleEditSubmit(e) {
         e.preventDefault();
         const { salaryBasic, salaryHra, ...rest } = editForm;
 
@@ -145,8 +180,13 @@ function EmployeesContent() {
             }
         };
 
-        updateUser(showEditModal.id, updates);
-        setShowEditModal(null);
+        const { success, error } = await updateUser(showEditModal.id, updates);
+        if (success) {
+            setShowEditModal(null);
+            addToast("Employee updated successfully!", "success", "✅");
+        } else {
+            addToast("Error updating employee: " + error, "error", "❌");
+        }
     }
 
     return (
@@ -224,19 +264,42 @@ function EmployeesContent() {
                                     {(canEdit || canResetPwd) && (
                                         <td>
                                             <div style={{ display: 'flex', gap: 6 }}>
+                                                <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: emp.status === 'onboarding' ? '#10b981' : '#f43f5e' }} onClick={() => { setSelectedLifecycleEmp(emp.id); setLifecycleView(emp.status === 'onboarding' ? 'onboarding' : 'offboarding'); }} title="Manage Lifecycle (Onboarding/Offboarding)">
+                                                    <Activity size={13} />
+                                                </button>
                                                 {canEdit && <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px' }} onClick={() => handleEditClick(emp)} title="Edit Employee"><Edit2 size={13} /></button>}
                                                 {canResetPwd && (
                                                     <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: '#fbbf24' }} onClick={() => setShowResetModal(emp)} title="Reset Password">
                                                         <Key size={13} />
                                                     </button>
                                                 )}
-                                                {canEdit && emp.status === 'active' && (
-                                                    <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: '#f59e0b' }} onClick={() => { if(confirm(`Are you sure you want to retire ${emp.name}?`)) deactivateUser(emp.id); }} title="Retire Employee (Mark Inactive)">
-                                                        <UserPlus size={13} style={{ transform: 'rotate(45deg)' }} />
+                                                {canEdit && (
+                                                    <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: emp.status === 'inactive' ? 'var(--text-muted)' : '#f59e0b' }} 
+                                                        onClick={async () => { 
+                                                            if (emp.status === 'active') {
+                                                                if(confirm(`Deactivate ${emp.name}? They will lose all system access.`)) {
+                                                                    const { success } = await deactivateUser(emp.id);
+                                                                    if (success) addToast(`${emp.name} deactivated`, "warning", "⚠️");
+                                                                }
+                                                            } else {
+                                                                if(confirm(`Re-activate ${emp.name}?`)) {
+                                                                    const { success } = await activateUser(emp.id);
+                                                                    if (success) addToast(`${emp.name} re-activated`, "success", "✅");
+                                                                }
+                                                            }
+                                                        }} 
+                                                        title={emp.status === 'active' ? "Deactivate Account" : "Re-activate Account"}>
+                                                        {emp.status === 'inactive' ? <ToggleLeft size={16} /> : <ToggleRight size={16} color="#10b981" />}
                                                     </button>
                                                 )}
                                                 {currentUser?.role === 'super_admin' && (
-                                                    <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: '#ef4444' }} onClick={() => { if(confirm(`⚠️ WARNING: This will PERMANENTLY delete ${emp.name} and all their cloud data. \n\nAre you absolutely sure?`)) deleteUser(emp.id); }} title="HARD DELETE (Permanent)">
+                                                    <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: '#ef4444' }} onClick={async () => { 
+                                                        if(confirm(`⚠️ WARNING: This will PERMANENTLY delete ${emp.name} and all their cloud data. \n\nAre you absolutely sure?`)) {
+                                                            const { success, error } = await deleteUser(emp.id);
+                                                            if (success) addToast("Employee deleted permanently", "error", "🗑️");
+                                                            else addToast("Delete failed: " + error, "error", "❌");
+                                                        }
+                                                    }} title="HARD DELETE (Permanent)">
                                                         <Trash2 size={13} />
                                                     </button>
                                                 )}
@@ -467,6 +530,118 @@ function EmployeesContent() {
                                 <button type="submit" className="btn btn-primary"><Edit2 size={15} /> Save Changes</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* Lifecycle Management Modal */}
+            {selectedLifecycleEmp && (
+                <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setSelectedLifecycleEmp(null)}>
+                    <div className="modal-box" style={{ maxWidth: 800 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                            <div>
+                                <h3 style={{ fontFamily: 'var(--font-display)' }}>Lifecycle: {lifecycleEmp?.name}</h3>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{lifecycleEmp?.employeeId} • {lifecycleEmp?.designation}</p>
+                            </div>
+                            <div className="tabs" style={{ marginBottom: 0 }}>
+                                <button className={`tab-btn ${lifecycleView === 'onboarding' ? 'active' : ''}`} onClick={() => setLifecycleView('onboarding')}>
+                                    <UserPlus size={14} /> Onboarding
+                                </button>
+                                <button className={`tab-btn ${lifecycleView === 'offboarding' ? 'active' : ''}`} onClick={() => setLifecycleView('offboarding')}>
+                                    <UserMinus size={14} /> Offboarding
+                                </button>
+                            </div>
+                        </div>
+
+                        {lifecycleView === 'onboarding' ? (
+                            <div className="grid-2" style={{ gap: 24 }}>
+                                <div className="card" style={{ padding: 20 }}>
+                                    <h4 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                                        <FileCheck size={18} color="var(--brand-primary)" /> KYC Document Checklist
+                                    </h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        {ONBOARDING_DOCUMENTS.map(doc => (
+                                            <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 'var(--radius-md)', background: docs[doc.id] ? 'rgba(16,185,129,0.05)' : 'rgba(0,0,0,0.02)', border: '1px solid var(--border-subtle)' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                    {docs[doc.id] ? <CheckCircle size={16} color="#10b981" /> : <Circle size={16} color="var(--text-muted)" />}
+                                                    <span style={{ fontSize: '0.85rem', fontWeight: docs[doc.id] ? 600 : 400 }}>{doc.name} {doc.required && <span style={{ color: '#ef4444' }}>*</span>}</span>
+                                                </div>
+                                                <input type="checkbox" checked={docs[doc.id] || false} onChange={(e) => handleLifecycleDocChange(doc.id, e.target.checked)} style={{ width: 18, height: 18, cursor: 'pointer' }} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+                                        <h4 style={{ marginBottom: 12 }}>Current Status</h4>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 'var(--radius-md)', background: lifecycleEmp?.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: lifecycleEmp?.status === 'active' ? '#059669' : '#d97706', fontSize: '0.85rem', fontWeight: 600 }}>
+                                            {lifecycleEmp?.status === 'active' ? <CheckCheck size={18} /> : <AlertCircle size={18} />}
+                                            {lifecycleEmp?.status === 'active' ? 'Professionally Active' : 'Onboarding in Progress'}
+                                        </div>
+                                    </div>
+                                    {lifecycleEmp?.status !== 'active' && (
+                                        <div className="card" style={{ padding: 20, border: '1px solid var(--brand-primary-subtle)', background: 'linear-gradient(to bottom right, #fff, var(--bg-hover))' }}>
+                                            <h4 style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <Award size={18} color="var(--brand-primary)" /> Ready to Finalize?
+                                            </h4>
+                                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 16 }}>
+                                                Once all mandatory documents are verified, you can activate the profile.
+                                            </p>
+                                            <button className="btn btn-primary" style={{ width: '100%' }} disabled={!allDocsClear} onClick={handleFinalizeOnboarding}>
+                                                Finalize & Activate
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="grid-2" style={{ gap: 24 }}>
+                                <div className="card" style={{ padding: 20 }}>
+                                    <h4 style={{ marginBottom: 16 }}>Department Clearances</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        {OFFBOARDING_CLEARANCES.map(c => (
+                                            <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
+                                                <span style={{ fontSize: '0.85rem' }}>{c.item}</span>
+                                                <div style={{ display: 'flex', gap: 8 }}>
+                                                    <button className={`btn ${clearances[c.id] ? 'btn-primary' : 'btn-ghost'} btn-sm`} onClick={() => handleLifecycleClearanceChange(c.id, !clearances[c.id])}>
+                                                        {clearances[c.id] ? 'Cleared' : 'Mark Clear'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="card" style={{ padding: 20 }}>
+                                    <h4 style={{ marginBottom: 16 }}>F&F Settlement (Preview)</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                            <span style={{ color: 'var(--text-muted)' }}>Unpaid Salary:</span>
+                                            <span style={{ fontWeight: 600 }}>₹{lifecycleEmp?.salary?.gross?.toLocaleString() || 0}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                            <span style={{ color: 'var(--text-muted)' }}>Gratuity Eli.:</span>
+                                            <span style={{ color: gratuity?.eligible ? '#10b981' : '#f43f5e', fontWeight: 600 }}>{gratuity?.eligible ? 'YES' : 'NO'}</span>
+                                        </div>
+                                        {gratuity?.eligible && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                                <span style={{ color: 'var(--text-muted)' }}>Gratuity Amt:</span>
+                                                <span style={{ fontWeight: 600 }}>₹{gratuity.amount.toLocaleString()}</span>
+                                            </div>
+                                        )}
+                                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', fontSize: '1rem' }}>
+                                            <span style={{ fontWeight: 700 }}>Total Payout:</span>
+                                            <span style={{ fontWeight: 800, color: 'var(--brand-primary)' }}>₹{( (lifecycleEmp?.salary?.gross || 0) + (gratuity?.amount || 0) ).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                    <button className="btn btn-primary" style={{ width: '100%', marginTop: 20 }} disabled>
+                                        Initiate Settlement
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+                            <button className="btn btn-ghost" onClick={() => setSelectedLifecycleEmp(null)}>Close Management</button>
+                        </div>
                     </div>
                 </div>
             )}
