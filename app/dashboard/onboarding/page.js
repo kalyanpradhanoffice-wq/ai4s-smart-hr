@@ -2,7 +2,7 @@
 import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useState } from 'react';
-import { ONBOARDING_DOCUMENTS, calculateGratuity, OFFBOARDING_CLEARANCES } from '@/lib/constants';
+import { ONBOARDING_DOCUMENTS, calculateGratuity, OFFBOARDING_CLEARANCES } from '@/lib/mockData';
 import { UserPlus, UserMinus, CheckCircle, Circle, AlertCircle, FileText, Award, CheckCheck } from 'lucide-react';
 
 import { useEffect } from 'react';
