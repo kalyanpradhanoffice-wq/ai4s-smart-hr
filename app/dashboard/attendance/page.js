@@ -1,7 +1,7 @@
 'use client';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { can } from '@/lib/rbac';
 import { PERMISSIONS } from '@/lib/constants';
 import { Clock, MapPin, CheckCircle, AlertCircle, Plus, Edit, Shield, ChevronDown, History, Search, Info, Calendar, Users } from 'lucide-react';
@@ -39,6 +39,8 @@ function AttendanceContent() {
     const [histEmpFilter, setHistEmpFilter] = useState('');
     const [histDateFrom, setHistDateFrom] = useState('');
     const [histDateTo, setHistDateTo] = useState('');
+    const [showCamera, setShowCamera] = useState(false);
+    const [cameraAction, setCameraAction] = useState('in'); // 'in' or 'out'
 
     // HR correction state
     const [selectedCalDate, setSelectedCalDate] = useState(null);
@@ -68,29 +70,34 @@ function AttendanceContent() {
 
     const myLeaveBalance = leaveBalances?.find(b => b.userId === selectedUserId);
 
-    async function handlePunchIn() { // Made async
-        if (isPunching) return; // Guard clause
-        setIsPunching(true); // Set loading state
-        const now = new Date();
-        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        try {
-            await markAttendance(currentUser.id, today, 'in', timeStr, 'office'); // Await markAttendance
-            setPunchStatus('in');
-        } finally {
-            setIsPunching(false); // Reset loading state
-        }
+    async function handlePunchIn() { 
+        if (isPunching) return;
+        setCameraAction('in');
+        setShowCamera(true);
     }
 
-    async function handlePunchOut() { // Made async
-        if (isPunching || !todayRecord) return; // Guard clause
-        setIsPunching(true); // Set loading state
+    async function handlePunchOut() { 
+        if (isPunching || !todayRecord) return;
+        setCameraAction('out');
+        setShowCamera(true);
+    }
+
+    async function finalizePunch() {
+        if (isPunching) return;
+        setIsPunching(true);
         const now = new Date();
         const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         try {
-            await markAttendance(currentUser.id, today, 'out', timeStr, null); // Await markAttendance
-            setPunchStatus('out-done');
+            if (cameraAction === 'in') {
+                await markAttendance(currentUser.id, today, 'in', timeStr, 'office', true); 
+                setPunchStatus('in');
+            } else {
+                await markAttendance(currentUser.id, today, 'out', timeStr, null, true); 
+                setPunchStatus('out-done');
+            }
+            setShowCamera(false);
         } finally {
-            setIsPunching(false); // Reset loading state
+            setIsPunching(false);
         }
     }
 
@@ -385,7 +392,7 @@ function AttendanceContent() {
                         </div>
                         <div className="table-wrapper" style={{ boxShadow: 'none', border: 'none' }}>
                             <table className="data-table">
-                                <thead><tr><th>Date</th><th>Status</th><th>Punch In</th><th>Punch Out</th><th>Location</th><th>Hours</th><th>Corrected</th></tr></thead>
+                                <thead><tr><th>Date</th><th>Status</th><th>Punch In</th><th>Punch Out</th><th>Location</th><th>Verified</th><th>Hours</th><th>Corrected</th></tr></thead>
                                 <tbody>
                                     {myAttendance.slice().reverse().map(a => {
                                         const hours = a.punchIn && a.punchOut ? (() => {
@@ -401,6 +408,7 @@ function AttendanceContent() {
                                                 <td style={{ fontSize: '0.85rem' }}>{a.punchIn || '—'}</td>
                                                 <td style={{ fontSize: '0.85rem' }}>{a.punchOut || '—'}</td>
                                                 <td style={{ fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={12} />{a.location || '—'}</td>
+                                                <td>{a.photo_captured ? <div title="Photo Verified" style={{ color: '#10b981' }}><Shield size={14} /></div> : '—'}</td>
                                                 <td style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--brand-primary-light)' }}>{hours}</td>
                                                 <td>{a.hrCorrected && <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>HR</span>}</td>
                                             </tr>
@@ -432,6 +440,7 @@ function AttendanceContent() {
                                     <th>Punch In</th>
                                     <th>Punch Out</th>
                                     <th>Hours</th>
+                                    <th>Verified</th>
                                     <th>Corrected</th>
                                     {canManageAttendance && <th>Actions</th>}
                                 </tr>
@@ -461,6 +470,7 @@ function AttendanceContent() {
                                             <td style={{ fontSize: '0.85rem' }}>{a.punchIn || '—'}</td>
                                             <td style={{ fontSize: '0.85rem' }}>{a.punchOut || '—'}</td>
                                             <td style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--brand-primary-light)' }}>{hours}</td>
+                                            <td>{a.photo_captured ? <div title="Photo Verified" style={{ color: '#10b981' }}><Shield size={14} /></div> : '—'}</td>
                                             <td>{a.hrCorrected ? <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>HR</span> : '—'}</td>
                                             {canManageAttendance && (
                                                 <td>
@@ -668,9 +678,47 @@ function AttendanceContent() {
                     setHistDateTo={setHistDateTo}
                 />
             )}
+            {/* Camera Modal */}
+            {showCamera && (
+                <div className="modal-overlay">
+                    <div className="modal-box" style={{ maxWidth: 400, textAlign: 'center' }}>
+                        <h3 style={{ marginBottom: 16 }}>Attendance Verification</h3>
+                        <div style={{ background: '#000', borderRadius: 'var(--radius-md)', overflow: 'hidden', aspectRatio: '4/3', marginBottom: 20, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <CameraPreview onStop={() => {}} />
+                        </div>
+                        <div className="alert alert-info" style={{ marginBottom: 20, fontSize: '0.8rem' }}>
+                            <Shield size={14} /> Please face the camera to verify your identity for <strong>Punch {cameraAction === 'in' ? 'In' : 'Out'}</strong>.
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                            <button className="btn btn-ghost" onClick={() => setShowCamera(false)} disabled={isPunching}>Cancel</button>
+                            <button className="btn btn-primary" onClick={finalizePunch} disabled={isPunching}>
+                                {isPunching ? 'Verifying...' : 'Capture & Punch'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
-
     );
+}
+
+function CameraPreview() {
+    const videoRef = useRef(null);
+    useEffect(() => {
+        let stream = null;
+        async function start() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                if (videoRef.current) videoRef.current.srcObject = stream;
+            } catch (err) {
+                console.error("Camera access denied", err);
+            }
+        }
+        start();
+        return () => { if (stream) stream.getTracks().forEach(t => t.stop()); };
+    }, []);
+
+    return <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
 }
 
 function AttendanceHistoryPanel({ activityHistory, users, canManageAttendance, histEmpFilter, setHistEmpFilter, histDateFrom, setHistDateFrom, histDateTo, setHistDateTo }) {

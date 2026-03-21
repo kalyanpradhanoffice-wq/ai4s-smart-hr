@@ -11,7 +11,7 @@ function LeavesContent() {
     const [showForm, setShowForm] = useState(false);
     const [showAdjust, setShowAdjust] = useState(false);
     const [activeTab, setActiveTab] = useState('my');
-    const [form, setForm] = useState({ type: 'CL', from: '', to: '', reason: '' });
+    const [form, setForm] = useState({ type: 'casual', from: '', to: '', reason: '' });
     const [adjustForm, setAdjustForm] = useState({ userId: '', type: 'CL', amount: '', reason: '' });
     const [sandwichInfo, setSandwichInfo] = useState(0);
 
@@ -93,7 +93,7 @@ function LeavesContent() {
 
             {/* Leave Balance Cards */}
             <div style={{ display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap' }}>
-                {LEAVE_TYPES.slice(0, 5).map(lt => {
+                {LEAVE_TYPES.filter(lt => !lt.applicableGender || lt.applicableGender === currentUser?.gender).map(lt => {
                     const val = myBalance ? (myBalance[lt.id] ?? myBalance[lt.id.toLowerCase()]) : (lt.maxPerYear || 0);
                     return (
                         <div key={lt.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '16px 20px', minWidth: 120, backdropFilter: 'blur(20px)', flex: '1 1 100px' }}>
@@ -127,7 +127,7 @@ function LeavesContent() {
                             <thead>
                                 <tr>
                                     <th>Employee</th>
-                                    {LEAVE_TYPES.slice(0, 5).map(lt => <th key={lt.id}>{lt.id}</th>)}
+                                    {LEAVE_TYPES.map(lt => <th key={lt.id}>{lt.id}</th>)}
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -140,7 +140,7 @@ function LeavesContent() {
                                                 <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{u.name}</div>
                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.employeeId}</div>
                                             </td>
-                                            {LEAVE_TYPES.slice(0, 5).map(lt => {
+                                            {LEAVE_TYPES.map(lt => {
                                                 const val = bal ? (bal[lt.id] ?? bal[lt.id.toLowerCase()]) : (lt.maxPerYear || 0);
                                                 return (
                                                     <td key={lt.id} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -210,7 +210,7 @@ function LeavesContent() {
                             <div className="form-group">
                                 <label className="form-label">Leave Type</label>
                                 <select className="form-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-                                    {LEAVE_TYPES.map(lt => <option key={lt.id} value={lt.id}>{lt.name} ({lt.id})</option>)}
+                                    {LEAVE_TYPES.filter(lt => !lt.applicableGender || lt.applicableGender === currentUser?.gender).map(lt => <option key={lt.id} value={lt.id}>{lt.name} ({lt.id})</option>)}
                                 </select>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -266,7 +266,12 @@ function LeavesContent() {
                                 <div className="form-group">
                                     <label className="form-label">Leave Type</label>
                                     <select className="form-select" value={adjustForm.type} onChange={e => setAdjustForm(f => ({ ...f, type: e.target.value }))}>
-                                        {LEAVE_TYPES.map(lt => <option key={lt.id} value={lt.id}>{lt.name}</option>)}
+                                        {(() => {
+                                            const sel = users.find(u => u.id === adjustForm.userId);
+                                            return LEAVE_TYPES.filter(lt => !sel || !lt.applicableGender || lt.applicableGender === sel.gender).map(lt => (
+                                                <option key={lt.id} value={lt.id}>{lt.name}</option>
+                                            ));
+                                        })()}
                                     </select>
                                 </div>
                                 <div className="form-group">
