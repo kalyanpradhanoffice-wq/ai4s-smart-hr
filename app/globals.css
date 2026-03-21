@@ -1120,6 +1120,15 @@ a {
   animation: fadeIn 0.4s ease;
 }
 
+.hover-scale {
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.hover-scale:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: var(--shadow-lg), var(--shadow-glow-sm);
+}
+
 .animate-slide-up {
   animation: slideUp 0.4s ease;
 }

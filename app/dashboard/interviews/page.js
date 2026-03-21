@@ -3,6 +3,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useState } from 'react';
 import { UserCheck, Plus, Calendar, Clock, Video, MapPin, Star, ThumbsUp, ThumbsDown, ChevronDown, Users } from 'lucide-react';
+import { getInitials } from '@/lib/constants';
 
 const POSITIONS = ['Software Engineer', 'Senior Software Engineer', 'Product Manager', 'HR Executive', 'Sales Executive', 'Finance Analyst', 'DevOps Engineer', 'UI/UX Designer'];
 
@@ -95,8 +96,8 @@ function InterviewContent() {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div style={{ flex: 1 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                                            <div className="avatar avatar-sm" style={{ background: 'var(--gradient-brand)' }}>
-                                                {inv.candidateName?.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                            <div className="avatar avatar-sm" style={{ background: 'var(--gradient-brand)', fontWeight: 700 }}>
+                                                {getInitials(inv.candidateName)}
                                             </div>
                                             <div>
                                                 <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{inv.candidateName}</div>

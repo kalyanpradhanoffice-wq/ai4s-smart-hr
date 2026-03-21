@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/lib/AppContext';
 import { getRoleMeta } from '@/lib/rbac';
+import { PERMISSIONS, getInitials } from '@/lib/constants';
 import { Bell, Search, LogOut, Settings, User, CheckCheck, Moon, Sun } from 'lucide-react';
 
 export default function TopHeader({ title, customRoles }) {
@@ -18,6 +19,20 @@ export default function TopHeader({ title, customRoles }) {
     const roleMeta = getRoleMeta(currentUser?.role, customRoles || []);
 
     const [isDarkMode, setIsDarkMode] = useState(true);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedEmployee, setSelectedEmployee] = useState(null);
+    const searchRef = useRef(null);
+    const { users } = useApp();
+
+    const searchResults = searchQuery.trim() ? users.filter(u => 
+        u.status === 'active' && (
+            (u.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (u.employeeId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (u.department || '').toLowerCase().includes(searchQuery.toLowerCase())
+        )
+    ).slice(0, 5) : [];
 
     useEffect(() => {
         // Init theme from localStorage or default to dark
@@ -28,6 +43,11 @@ export default function TopHeader({ title, customRoles }) {
         function handleClick(e) {
             if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
             if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+            if (searchRef.current && !searchRef.current.contains(e.target)) {
+                setSearchOpen(false);
+                setSearchQuery('');
+                setSelectedEmployee(null);
+            }
         }
         document.addEventListener('mousedown', handleClick);
         return () => document.removeEventListener('mousedown', handleClick);
@@ -60,12 +80,98 @@ export default function TopHeader({ title, customRoles }) {
     }
 
     return (
-        <header className="header">
-            <div style={{ flex: 1 }}>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 700 }}>{title}</h2>
+        <header className="header" style={{ gap: 12 }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 16 }}>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 700, whiteSpace: 'nowrap' }}>{title}</h2>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {/* Expandable Search Input */}
+                <div ref={searchRef} style={{ position: 'relative', width: searchOpen ? 300 : 40, transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', background: searchOpen ? 'var(--bg-input)' : 'transparent', border: searchOpen ? '1px solid var(--border-default)' : '1px solid transparent', borderRadius: '24px', padding: '0 4px', height: 40, transition: 'all 0.3s' }}>
+                        <button className="btn btn-ghost btn-icon" style={{ border: 'none', background: 'transparent' }} onClick={() => setSearchOpen(true)}>
+                            <Search size={18} />
+                        </button>
+                        {searchOpen && (
+                            <input 
+                                autoFocus
+                                type="text" 
+                                placeholder="Search employees..." 
+                                style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '100%', fontSize: '0.9rem', padding: '0 8px' }}
+                                value={searchQuery}
+                                onChange={e => { setSearchQuery(e.target.value); setSelectedEmployee(null); }}
+                            />
+                        )}
+                    </div>
+
+                    {/* Search Results Dropdown */}
+                    {searchOpen && searchQuery.trim() && !selectedEmployee && (
+                        <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 350, background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)', zIndex: 300, overflow: 'hidden', animation: 'slideDown 0.2s ease' }}>
+                            {searchResults.length > 0 ? (
+                                searchResults.map(emp => (
+                                    <div key={emp.id} className="sidebar-user" style={{ padding: '10px 14px', borderRadius: 0, borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }} onClick={() => setSelectedEmployee(emp)}>
+                                        <div className="avatar avatar-sm" style={{ background: `${emp.avatarColor}15`, color: emp.avatarColor, fontWeight: 700 }}>{emp.avatar}</div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{emp.name}</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{emp.designation} • {emp.department}</div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div style={{ padding: '16px', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>No matches found</div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Employee Detail Popover */}
+                    {selectedEmployee && (
+                        <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 320, background: 'var(--bg-elevated)', border: '1px solid var(--border-active)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg), 0 0 20px rgba(99,102,241,0.2)', zIndex: 301, overflow: 'hidden', animation: 'scaleIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+                            <div style={{ background: 'var(--gradient-brand)', height: 80, position: 'relative' }}>
+                                <button style={{ position: 'absolute', right: 10, top: 10, background: 'rgba(0,0,0,0.2)', border: 'none', color: 'white', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }} onClick={() => setSelectedEmployee(null)}>×</button>
+                            </div>
+                            <div style={{ padding: '0 20px 20px 20px', marginTop: -40, position: 'relative', zIndex: 5 }}>
+                                <div className="avatar avatar-lg" style={{ border: '4px solid var(--bg-elevated)', background: selectedEmployee.avatarColor || 'var(--gradient-brand)', boxShadow: 'var(--shadow-md)', margin: '0 auto 12px', width: 80, height: 80, fontSize: '1.8rem', fontWeight: 800 }}>
+                                    {selectedEmployee.avatar}
+                                </div>
+                                <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: 4 }}>{selectedEmployee.name}</h3>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--brand-primary-light)', fontFamily: 'monospace', background: 'rgba(99,102,241,0.1)', padding: '2px 8px', borderRadius: '12px', display: 'inline-block' }}>{selectedEmployee.employeeId}</div>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.85rem' }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: '8px', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💼</div>
+                                        <div>
+                                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Designation</div>
+                                            <div style={{ fontWeight: 600 }}>{selectedEmployee.designation}</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.85rem' }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: '8px', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🏢</div>
+                                        <div>
+                                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Department</div>
+                                            <div style={{ fontWeight: 600 }}>{selectedEmployee.department}</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.85rem' }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: '8px', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✉️</div>
+                                        <div>
+                                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Email</div>
+                                            <a href={`mailto:${selectedEmployee.email}`} style={{ fontWeight: 600, color: 'var(--brand-primary-light)', textDecoration: 'none' }}>{selectedEmployee.email}</a>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.85rem' }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: '8px', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📞</div>
+                                        <div>
+                                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Phone</div>
+                                            <div style={{ fontWeight: 600 }}>{selectedEmployee.phone || 'Not available'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 {/* Theme Toggle */}
                 <button className="btn btn-ghost btn-icon" onClick={toggleTheme} title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
                     {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}

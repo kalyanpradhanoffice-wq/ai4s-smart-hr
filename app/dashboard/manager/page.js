@@ -92,8 +92,8 @@ function ManagerContent() {
                         return (
                             <div key={member.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-glass)', border: '1px solid var(--border-subtle)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    <div className="avatar avatar-sm" style={{ background: member.avatarColor || 'var(--primary-light)' }}>
-                                        {member.name?.split(' ').map(n => n[0]).join('') || member.avatar}
+                                    <div className="avatar avatar-sm" style={{ background: member.avatarColor || 'var(--primary-light)', fontWeight: 700 }}>
+                                        {member.avatar}
                                     </div>
                                     <div>
                                         <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{member.name}</div>
@@ -150,7 +150,7 @@ function ManagerContent() {
                                     <tr key={record.id}>
                                         <td>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <div className="avatar avatar-xs" style={{ fontSize: '0.6rem', background: emp?.avatarColor }}>{emp?.name?.[0]}</div>
+                                                <div className="avatar avatar-xs" style={{ fontSize: '0.6rem', background: emp?.avatarColor, fontWeight: 700 }}>{emp?.avatar}</div>
                                                 <span style={{ fontWeight: 500 }}>{emp?.name}</span>
                                             </div>
                                         </td>

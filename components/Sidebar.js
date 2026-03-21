@@ -7,8 +7,8 @@ import { can } from '@/lib/rbac';
 import { PERMISSIONS } from '@/lib/constants';
 import {
     LayoutDashboard, Users, Clock, Calendar, DollarSign, Target, TrendingUp,
-    UserPlus, UserMinus, Shield, Settings, Key, Bell, LogOut, ChevronDown,
-    Wifi, ClipboardList, Award, AlertCircle, FileText, Building, Database, UserCheck,
+    UserPlus, UserMinus, Shield, Settings, Key, Bell, LogOut, ChevronDown, Search,
+    Wifi, ClipboardList, Award, AlertCircle, FileText, Building, Database, UserCheck, UserCircle,
 } from 'lucide-react';
 
 // Each item can have a single `permission` string OR a `permissions` array (OR logic).
