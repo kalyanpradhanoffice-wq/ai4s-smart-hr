@@ -11,7 +11,7 @@ export async function POST(req) {
     const body = await req.json();
     const { 
       email, password, name, designation, department, role, employee_id,
-      joinDate, type, phone, location, dob, gender, pan, managerId, 
+      joinDate, type, phone, location, dob, gender, pan, managerId, functionalManagerId,
       salary, avatarColor
     } = body;
 
@@ -49,6 +49,7 @@ export async function POST(req) {
           gender,
           pan,
           manager_id: managerId || null,
+          functional_manager_id: functionalManagerId || null,
           salary_basic,
           salary_hra,
           avatar_color: avatarColor,

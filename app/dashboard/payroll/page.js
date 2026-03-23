@@ -7,7 +7,7 @@ import { can } from '@/lib/rbac';
 import { Download, TrendingUp, Info, CheckCircle, FileSpreadsheet, History } from 'lucide-react';
 
 function PayrollContent() {
-    const { currentUser, users, payroll, addAuditEntry, attendance, activityHistory, logActivity, processPayroll } = useApp();
+    const { currentUser, users, payroll, addAuditEntry, attendance, activityHistory, logActivity, processPayroll, salaryUpgrades, approveSalaryUpgrade, addToast } = useApp();
     const [selectedUser, setSelectedUser] = useState(currentUser?.id);
     const [regime, setRegime] = useState('new');
     const [voluntaryEPF, setVoluntaryEPF] = useState(false);
@@ -73,7 +73,7 @@ function PayrollContent() {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         const details = [
-            [`Name: ${emp?.name}`, `Employee ID: ${emp?.employeeId}`],
+            [`Name: ${emp?.name}`, `Employee ID: ${emp?.displayId}`],
             [`Designation: ${emp?.designation}`, `Department: ${emp?.department}`],
             [`Tax Regime: ${regime.toUpperCase()}`, `Working Days: 28`],
         ];
@@ -154,7 +154,7 @@ function PayrollContent() {
             const presentD = attRecs.filter(a => a.status === 'present' || a.status === 'wfh').length;
             const leaveD = attRecs.filter(a => a.status === 'leave').length;
             return {
-                'Employee ID': u.employeeId, 'Employee Name': u.name, 'Department': u.department,
+                'Employee ID': u.displayId, 'Employee Name': u.name, 'Department': u.department,
                 'Designation': u.designation, 'Working Days': 28, 'Present Days': presentD || 28,
                 'Leave Days': leaveD || 0, 'Basic Salary (Rs)': b, 'HRA (Rs)': u.salary?.hra || 0,
                 'Allowances (Rs)': u.salary?.allowances || 0, 'Gross Salary (Rs)': g,
@@ -169,7 +169,7 @@ function PayrollContent() {
 
         // Persist to Supabase
         const payrollBatch = data.map(record => ({
-            employee_id: users.find(u => u.employeeId === record['Employee ID'])?.id,
+            user_id: users.find(u => u.displayId === record['Employee ID'])?.id,
             month: 'February 2025',
             gross_salary: record['Gross Salary (Rs)'],
             net_pay: record['Net Pay (Rs)'],
@@ -208,6 +208,46 @@ function PayrollContent() {
                     </button>
                 )}
             </div>
+            
+            {/* ── SALARY UPGRADE APPROVALS (SUPER ADMIN BYPASS) ── */}
+            {salaryUpgrades.some(su => su.status === 'pending') && (
+                <div className="card" style={{ marginBottom: 28, border: '1px solid #8b5cf630', background: 'rgba(139, 92, 246, 0.03)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#8b5cf6' }}>Salary Upgrade Approvals</h3>
+                        <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>{salaryUpgrades.filter(su => su.status === 'pending').length} Pending</span>
+                    </div>
+                    <div className="table-wrapper" style={{ boxShadow: 'none', background: 'transparent', border: 'none' }}>
+                        <table className="data-table">
+                            <thead><tr><th>Employee</th><th>Proposed Salary</th><th>Current Level</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {salaryUpgrades.filter(su => su.status === 'pending').map(su => {
+                                    const emp = users.find(u => u.id === su.employeeId);
+                                    const isL1 = su.currentLevel === 1 && su.level1_approver_id === currentUser.id;
+                                    const isL2 = su.currentLevel === 2 && su.level2_approver_id === currentUser.id;
+                                    const isSuper = currentUser.role === 'super_admin';
+                                    const totalLevels = su.level2_approver_id ? 2 : 1;
+                                    
+                                    if (!isL1 && !isL2 && !isSuper) return null;
+
+                                    return (
+                                        <tr key={su.id}>
+                                            <td style={{ fontWeight: 600 }}>{emp?.name} ({emp?.displayId})</td>
+                                            <td style={{ fontWeight: 700, color: 'var(--brand-primary-light)' }}>₹{Number(su.proposedSalary).toLocaleString()}</td>
+                                            <td><span className="badge badge-neutral">L{su.currentLevel}</span></td>
+                                            <td>
+                                                <div style={{ display: 'flex', gap: 6 }}>
+                                                    <button className="btn btn-success btn-sm" style={{ padding: '4px 10px', fontSize: '0.7rem' }} onClick={() => approveSalaryUpgrade(su.id, currentUser.id, 'Approved', su.currentLevel, totalLevels)}>Approve</button>
+                                                    <button className="btn btn-danger btn-sm" style={{ padding: '4px 10px', fontSize: '0.7rem' }} onClick={() => addToast('Rejection logic pending', 'info')}>Reject</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* ── TAB BAR ── */}
             <div className="tabs" style={{ marginBottom: 28 }}>
@@ -317,7 +357,7 @@ function PayrollContent() {
                                 <div>
                                     <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Employee</div>
                                     <div style={{ fontWeight: 700, marginTop: 4 }}>{emp?.name}</div>
-                                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 2 }}>{emp?.employeeId}</div>
+                                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 2 }}>{emp?.displayId}</div>
                                 </div>
                                 <div>
                                     <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Designation</div>

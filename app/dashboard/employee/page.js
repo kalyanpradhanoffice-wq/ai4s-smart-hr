@@ -30,6 +30,7 @@ function EmployeeContent() {
     const allKudos = kudos.slice(0, 8);
     const peers = users.filter(u => u.id !== currentUser?.id && u.role === 'employee');
     const myManager = users.find(u => u.id === currentUser?.managerId);
+    const myFunctionalManager = users.find(u => u.id === currentUser?.functionalManagerId);
 
     function handleSendKudos(e) {
         e.preventDefault();
@@ -77,7 +78,7 @@ function EmployeeContent() {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         const details = [
-            [`Name: ${currentUser?.name}`, `Employee ID: ${currentUser?.employeeId}`],
+            [`Name: ${currentUser?.name}`, `Employee ID: ${currentUser?.displayId}`],
             [`Designation: ${currentUser?.designation}`, `Department: ${currentUser?.department}`],
             [`Tax Regime: ${regime.toUpperCase()}`, `Working Days: ${myPayslip.workingDays || 28}`],
         ];
@@ -162,12 +163,19 @@ function EmployeeContent() {
                 <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 17 ? 'Afternoon' : 'Evening'}</div>
                     <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 800 }}>{currentUser?.name}</h2>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{currentUser?.designation} • {currentUser?.department} • {currentUser?.employeeId}</div>
-                    {myManager && (
-                        <div style={{ color: 'var(--brand-primary-light)', fontSize: '0.85rem', fontWeight: 600, marginTop: 4 }}>
-                            Reporting Manager: {myManager.name}
-                        </div>
-                    )}
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{currentUser?.designation} • {currentUser?.department} • {currentUser?.displayId}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 24px', marginTop: 6 }}>
+                        {myManager && (
+                            <div style={{ color: 'var(--brand-primary-light)', fontSize: '0.82rem', fontWeight: 600 }}>
+                                Reporting Manager: <span style={{ color: 'var(--text-primary)' }}>{myManager.name}</span>
+                            </div>
+                        )}
+                        {myFunctionalManager && (
+                            <div style={{ color: 'var(--brand-primary-light)', fontSize: '0.82rem', fontWeight: 600 }}>
+                                Functional Manager: <span style={{ color: 'var(--text-primary)' }}>{myFunctionalManager.name}</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn btn-secondary btn-sm" onClick={() => router.push('/dashboard/leaves')}>Apply Leave</button>

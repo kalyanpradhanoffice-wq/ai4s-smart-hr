@@ -59,22 +59,35 @@ function LoansContent() {
                                     <td style={{ fontSize: '0.82rem' }}>{ln.purpose}</td>
                                     <td style={{ fontSize: '0.82rem' }}>{ln.tenure} months</td>
                                     <td style={{ fontSize: '0.82rem' }}>₹{ln.emi?.toLocaleString()}/mo</td>
-                                    <td><span className="badge badge-neutral">L{ln.currentLevel}</span></td>
+                                    <td>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                            <span className="badge badge-neutral" style={{ width: 'fit-content' }}>L{ln.currentLevel}</span>
+                                             {ln.status === 'pending' && (
+                                                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                                                     {ln.currentLevel === 2
+                                                         ? `Awaiting ${users.find(u => u.id === ln.level2_approver_id)?.name || 'Functional Manager'}'s Approval`
+                                                         : `Awaiting ${users.find(u => u.id === ln.level1_approver_id)?.name || 'Reporting Manager'}'s Approval`}
+                                                 </span>
+                                             )}
+                                        </div>
+                                    </td>
                                     <td><span className={`status-pill status-${ln.status}`}>{ln.status}</span></td>
                                     <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ln.requestedOn}</td>
                                     <td>
                                         {ln.status === 'pending' && (
                                             (() => {
-                                                const workflow = APPROVAL_WORKFLOWS.LOAN.levels.find(l => l.level === ln.currentLevel);
-                                                const canApprove = currentUser?.role === workflow?.role || currentUser?.id === 'super_admin_id' || currentUser?.email === 'kalyanpradhanoffice@gmail.com';
+                                                const isL1 = ln.currentLevel === 1 && ln.level1_approver_id === currentUser.id;
+                                                const isL2 = ln.currentLevel === 2 && ln.level2_approver_id === currentUser.id;
+                                                const isSuper = currentUser.role === 'super_admin';
+                                                const totalLevels = ln.level2_approver_id ? 2 : 1;
                                                 
-                                                if (canApprove) {
+                                                if (isL1 || isL2 || isSuper) {
                                                     return (
                                                         <div style={{ display: 'flex', gap: 6 }}>
                                                             <button 
                                                                 className="btn btn-sm btn-ghost" 
                                                                 style={{ color: 'var(--brand-primary-light)', padding: '4px 8px' }}
-                                                                onClick={() => approveLoan(ln.id, currentUser.id, 'Approved', ln.currentLevel, APPROVAL_WORKFLOWS.LOAN.levels.length)}
+                                                                onClick={() => approveLoan(ln.id, currentUser.id, 'Approved', ln.currentLevel, totalLevels)}
                                                                 title="Approve"
                                                             >
                                                                 <CheckCircle size={16} />
@@ -90,7 +103,11 @@ function LoansContent() {
                                                         </div>
                                                     );
                                                 }
-                                                return <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Waiting for {workflow?.label}</span>;
+                                                 return (
+                                                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                                         Waiting for {ln.currentLevel === 2 ? users.find(u => u.id === ln.level2_approver_id)?.name : users.find(u => u.id === ln.level1_approver_id)?.name}
+                                                     </span>
+                                                 );
                                             })()
                                         )}
                                         {ln.status !== 'pending' && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>N/A</span>}

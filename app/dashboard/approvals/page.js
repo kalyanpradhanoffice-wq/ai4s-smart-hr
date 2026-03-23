@@ -6,16 +6,22 @@ import { ClipboardList, Calendar, DollarSign, User, ChevronRight } from 'lucide-
 
 function ApprovalsContent() {
     const router = useRouter();
-    const { leaveRequests, loans, salaryUpgrades, users } = useApp();
+    const { leaveRequests, loans, salaryUpgrades, regularizations, users, currentUser } = useApp();
 
     const all = [
         ...leaveRequests.filter(l => l.status === 'pending').map(l => ({ ...l, type: 'Leave', cat: 'leave', href: '/dashboard/leaves' })),
         ...loans.filter(l => l.status === 'pending').map(l => ({ ...l, type: 'Loan', cat: 'loan', href: '/dashboard/loans' })),
         ...salaryUpgrades.filter(s => s.status === 'pending').map(s => ({ ...s, type: 'Salary Upgrade', cat: 'salary', href: '/dashboard/payroll' })),
-    ];
+        ...regularizations.filter(r => r.status === 'pending').map(r => ({ ...r, type: 'Regularization', cat: 'attendance', href: '/dashboard/attendance' })),
+    ].filter(item => {
+        if (currentUser?.role === 'super_admin') return true;
+        if (item.current_level === 1) return item.level1_approver_id === currentUser?.id;
+        if (item.current_level === 2) return item.level2_approver_id === currentUser?.id;
+        return false;
+    });
 
-    const catIcons = { leave: Calendar, loan: DollarSign, salary: TrendingUp };
-    const catColors = { leave: '#06b6d4', loan: '#10b981', salary: '#8b5cf6' };
+    const catIcons = { leave: Calendar, loan: DollarSign, salary: TrendingUp, attendance: ClipboardList };
+    const catColors = { leave: '#06b6d4', loan: '#10b981', salary: '#8b5cf6', attendance: '#f59e0b' };
 
     function TrendingUp(props) { return <DollarSign {...props} /> }
 
@@ -47,7 +53,11 @@ function ApprovalsContent() {
                                 <div style={{ flex: 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                                         <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>{item.type}</span>
-                                        <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>L{item.currentLevel}</span>
+                                         <span className="badge" style={{ fontSize: '0.65rem', background: item.current_level === 2 ? 'rgba(99,102,241,0.1)' : 'rgba(0,0,0,0.05)', color: item.current_level === 2 ? 'var(--brand-primary-light)' : 'var(--text-muted)' }}>
+                                             {item.current_level === 2 
+                                                 ? `L2: ${users.find(u => u.id === item.level2_approver_id)?.name || 'Functional'} Approval` 
+                                                 : `L1: ${users.find(u => u.id === item.level1_approver_id)?.name || 'Reporting'} Approval`}
+                                         </span>
                                     </div>
                                     <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
                                         {emp?.name} • {item.reason || item.purpose || `₹${item.proposedSalary?.toLocaleString()}`}

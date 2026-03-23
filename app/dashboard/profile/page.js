@@ -5,8 +5,11 @@ import { User, Mail, Phone, MapPin, Calendar, Briefcase, Edit2 } from 'lucide-re
 import { getRoleMeta } from '@/lib/rbac';
 
 function ProfileContent() {
-    const { currentUser, customRoles } = useApp();
+    const { currentUser, customRoles, users } = useApp();
     const roleMeta = getRoleMeta(currentUser?.role, customRoles || []);
+    
+    const myManager = users.find(u => u.id === currentUser?.managerId);
+    const myFunctionalManager = users.find(u => u.id === currentUser?.functionalManagerId);
 
     if (!currentUser) return null;
 
@@ -32,7 +35,7 @@ function ProfileContent() {
                             { icon: MapPin, label: 'Location', value: currentUser.location },
                             { icon: Calendar, label: 'Join Date', value: currentUser.joinDate },
                             { icon: Briefcase, label: 'Department', value: currentUser.department },
-                            { icon: User, label: 'Employee ID', value: currentUser.employeeId },
+                            { icon: User, label: 'Employee ID', value: currentUser.displayId },
                         ].map(item => (
                             <div key={item.label} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                                 <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--bg-glass)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -59,6 +62,19 @@ function ProfileContent() {
                             <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.875rem' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
                                 <span style={{ fontWeight: 700 }}>₹{s.value?.toLocaleString() || '—'}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="card">
+                        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 16 }}>Management Team</h3>
+                        {[
+                            { label: 'Reporting Manager', value: myManager?.name || 'Not Assigned' },
+                            { label: 'Functional Manager', value: myFunctionalManager?.name || 'Not Applicable' },
+                        ].map(m => (
+                            <div key={m.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.875rem' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>{m.label}</span>
+                                <span style={{ fontWeight: 700, color: 'var(--brand-primary-light)' }}>{m.value}</span>
                             </div>
                         ))}
                     </div>

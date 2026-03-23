@@ -17,6 +17,8 @@
   --bg-surface: #16162a;
   --bg-elevated: #1e1e38;
   --bg-card: rgba(30, 30, 56, 0.8);
+  --bg-card-solid: rgb(30, 30, 56);
+  --bg-card-alt: rgb(24, 24, 48);
   --bg-glass: rgba(99, 102, 241, 0.08);
   --bg-glass-hover: rgba(99, 102, 241, 0.14);
   --bg-input: rgba(255, 255, 255, 0.05);
@@ -90,6 +92,8 @@
   --bg-surface: #ffffff;
   --bg-elevated: #f1f5f9;
   --bg-card: rgba(255, 255, 255, 0.9);
+  --bg-card-solid: rgb(255, 255, 255);
+  --bg-card-alt: rgb(248, 250, 252);
   --bg-input: rgba(0, 0, 0, 0.03);
 
   /* Light Mode Text */
@@ -222,6 +226,7 @@ a {
   backdrop-filter: blur(20px);
   box-shadow: var(--shadow-md);
   transition: border-color var(--transition-base), box-shadow var(--transition-base);
+  overflow: hidden; /* Prevent content from bleeding over rounded corners */
 }
 
 .card:hover {

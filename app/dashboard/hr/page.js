@@ -116,17 +116,55 @@ function HRContent() {
                         <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 4 }}>Designation Breakdown</h3>
                         <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Distribution across core roles</p>
                     </div>
-                    <div className="scroll-y" style={{ flex: 1, maxHeight: 260 }}>
-                        {chartData.map(dept => (
-                            <div key={dept.name} style={{ marginBottom: 16 }}>
-                                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <Briefcase size={12} /> {dept.name}
+                    <div className="scroll-y" style={{ flex: 1, maxHeight: 260, overflowY: 'auto', paddingRight: 8 }}>
+                        {chartData.map((dept, dIdx) => (
+                            <div key={dept.name} style={{ marginBottom: 24 }}>
+                                <div style={{ 
+                                    fontSize: '0.75rem', 
+                                    fontWeight: 800, 
+                                    color: chartColors[dIdx % chartColors.length], 
+                                    marginBottom: 10, 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'space-between',
+                                    paddingBottom: 6,
+                                    borderBottom: `2px solid ${chartColors[dIdx % chartColors.length]}15`
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <Briefcase size={13} /> {dept.name}
+                                    </div>
+                                    <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>{dept.total} Total</span>
                                 </div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                     {Object.entries(dept.designations).map(([desg, count]) => (
-                                        <div key={desg} style={{ padding: '4px 10px', background: 'var(--bg-glass)', border: '1px solid var(--border-subtle)', borderRadius: 100, fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <span style={{ fontWeight: 600 }}>{desg}:</span>
-                                            <span style={{ color: 'var(--text-accent)', fontWeight: 700 }}>{count}</span>
+                                        <div key={desg} style={{ 
+                                            padding: '8px 12px', 
+                                            background: 'var(--bg-glass)', 
+                                            border: '1px solid var(--border-subtle)', 
+                                            borderRadius: 8, 
+                                            fontSize: '0.82rem', 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'space-between',
+                                            transition: 'transform 0.1s'
+                                        }}
+                                        onMouseOver={e => e.currentTarget.style.transform = 'scale(1.01)'}
+                                        onMouseOut={e => e.currentTarget.style.transform = ''}
+                                        >
+                                            <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{desg}</span>
+                                            <span style={{ 
+                                                minWidth: 24, 
+                                                height: 24, 
+                                                borderRadius: '50%', 
+                                                background: `${chartColors[dIdx % chartColors.length]}15`, 
+                                                color: chartColors[dIdx % chartColors.length], 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'center',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 800,
+                                                border: `1px solid ${chartColors[dIdx % chartColors.length]}30`
+                                            }}>{count}</span>
                                         </div>
                                     ))}
                                 </div>

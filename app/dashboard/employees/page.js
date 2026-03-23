@@ -76,7 +76,7 @@ function EmployeesContent() {
         joinDate: new Date().toISOString().split('T')[0],
         salaryBasic: '', salaryHra: '',
         // Optional fields
-        phone: '', location: '', dob: '', gender: '', pan: '', managerId: ''
+        phone: '', location: '', dob: '', gender: '', pan: '', managerId: '', functionalManagerId: ''
     });
     // Generate the next employee ID for display
     const nextEmpNum = users.length + 1;
@@ -87,6 +87,7 @@ function EmployeesContent() {
     const [editForm, setEditForm] = useState({});
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isEditSubmitting, setIsEditSubmitting] = useState(false);
     const [creationSuccess, setCreationSuccess] = useState(null);
 
     const canResetPwd = can(currentUser, PERMISSIONS.RESET_PASSWORDS, customRoles);
@@ -97,7 +98,7 @@ function EmployeesContent() {
     const roles = [...new Set(users.map(u => u.role))];
 
     const filtered = users.filter(u => {
-        const matchSearch = !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()) || u.employeeId.toLowerCase().includes(search.toLowerCase());
+        const matchSearch = !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()) || u.displayId.toLowerCase().includes(search.toLowerCase());
         const matchDept = !deptFilter || u.department === deptFilter;
         const matchRole = !roleFilter || u.role === roleFilter;
         return matchSearch && matchDept && matchRole;
@@ -138,17 +139,17 @@ function EmployeesContent() {
         if (success) {
             const finalEmpId = employee_id || user?.employee_id || previewEmpId;
             setCreationSuccess({ id: finalEmpId, name: rest.name, userRecord: user });
-            addToast(`Employee Created: ${finalEmpId}`, "success", "✅");
+            addToast(`Employee Created: ${finalEmpId}`, "success", "\u2705");
             
             setNewEmpForm({
                 name: '', email: '', password: '', role: 'employee',
                 department: 'Technical', designation: 'Developer Admin - Accounts', type: 'Confirm',
                 joinDate: new Date().toISOString().split('T')[0],
                 salaryBasic: '', salaryHra: '',
-                phone: '', location: '', dob: '', gender: '', pan: '', managerId: ''
+                phone: '', location: '', dob: '', gender: '', pan: '', managerId: '', functionalManagerId: ''
             });
         } else {
-            addToast("Error: " + error, "error", "❌");
+            addToast("Error: " + error, "error", "\u274c");
         }
         setIsSubmitting(false);
     }
@@ -160,15 +161,18 @@ function EmployeesContent() {
             type: emp.type || 'Confirm',
             salaryBasic: emp.salary?.basic || '',
             salaryHra: emp.salary?.hra || '',
-            managerId: emp.managerId || ''
+            managerId: emp.managerId || emp.reportingTo || '',
+            functionalManagerId: emp.functionalManagerId || ''
         });
         setShowEditModal(emp);
     }
 
     async function handleEditSubmit(e) {
         e.preventDefault();
-        const { salaryBasic, salaryHra, ...rest } = editForm;
+        if (isEditSubmitting) return;
+        setIsEditSubmitting(true);
 
+        const { salaryBasic, salaryHra, ...rest } = editForm;
         const updates = {
             ...rest,
             salary: {
@@ -181,11 +185,12 @@ function EmployeesContent() {
         };
 
         const { success, error } = await updateUser(showEditModal.id, updates);
+        setIsEditSubmitting(false);
         if (success) {
             setShowEditModal(null);
-            addToast("Employee updated successfully!", "success", "✅");
+            addToast('Employee updated successfully!', 'success', '\u2705');
         } else {
-            addToast("Error updating employee: " + error, "error", "❌");
+            addToast('Error: ' + error, 'error', '\u274c');
         }
     }
 
@@ -224,11 +229,11 @@ function EmployeesContent() {
                             <th>Department</th>
                             <th>Designation</th>
                             <th>Type</th>
-                            <th>Reporting To</th>
+                            <th>Managers</th>
                             <th>Role</th>
                             <th>Join Date</th>
                             <th>Status</th>
-                            {(canEdit || canResetPwd) && <th>Actions</th>}
+                            {(canEdit || canResetPwd) && <th style={{ width: 56, textAlign: 'center' }}>Edit</th>}
                         </tr>
                     </thead>
                     <tbody>
@@ -238,19 +243,34 @@ function EmployeesContent() {
                                 <tr key={emp.id}>
                                     <td>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <div className="avatar avatar-sm" style={{ background: `${emp.avatarColor}30`, color: emp.avatarColor, fontWeight: 700 }}>{emp.avatar}</div>
+                                            <div className="avatar avatar-sm" style={{ background: `${emp.avatarColor}30`, color: emp.avatarColor, fontWeight: 700, flexShrink: 0 }}>{emp.avatar}</div>
                                             <div>
                                                 <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.875rem' }}>{emp.name}</div>
                                                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{emp.email}</div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td style={{ fontSize: '0.82rem', fontFamily: 'monospace', color: 'var(--brand-primary-light)' }}>{emp.employeeId}</td>
+                                    <td style={{ fontSize: '0.82rem', fontFamily: 'monospace', color: 'var(--brand-primary-light)' }}>{emp.displayId}</td>
                                     <td style={{ fontSize: '0.85rem' }}>{emp.department}</td>
                                     <td style={{ fontSize: '0.82rem' }}>{emp.designation}</td>
                                     <td><span className="badge badge-neutral">{emp.type || 'Confirm'}</span></td>
-                                    <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                                        {emp.managerId ? users.find(u => u.id === emp.managerId)?.name || 'Unknown' : '—'}
+                                    <td style={{ fontSize: '0.82rem' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--brand-primary-light)', textTransform: 'uppercase', letterSpacing: '0.04em', opacity: 0.8 }}>R</span>
+                                                <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
+                                                    {(emp.managerId || emp.reportingTo) ? users.find(u => u.id === (emp.managerId || emp.reportingTo))?.name || '—' : '—'}
+                                                </span>
+                                            </div>
+                                            {emp.functionalManagerId && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.04em', opacity: 0.8 }}>F</span>
+                                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                                                        {users.find(u => u.id === emp.functionalManagerId)?.name || '—'}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
                                     <td>
                                         <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 'var(--radius-full)', background: `${roleMeta.color || '#6366f1'}18`, color: roleMeta.color || '#818cf8', fontSize: '0.72rem', fontWeight: 700, border: `1px solid ${roleMeta.color || '#6366f1'}30` }}>
@@ -262,48 +282,15 @@ function EmployeesContent() {
                                         <span className={`status-pill ${emp.status === 'active' ? 'status-approved' : 'status-rejected'}`}>{emp.status}</span>
                                     </td>
                                     {(canEdit || canResetPwd) && (
-                                        <td>
-                                            <div style={{ display: 'flex', gap: 6 }}>
-                                                <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: emp.status === 'onboarding' ? '#10b981' : '#f43f5e' }} onClick={() => { setSelectedLifecycleEmp(emp.id); setLifecycleView(emp.status === 'onboarding' ? 'onboarding' : 'offboarding'); }} title="Manage Lifecycle (Onboarding/Offboarding)">
-                                                    <Activity size={13} />
-                                                </button>
-                                                {canEdit && <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px' }} onClick={() => handleEditClick(emp)} title="Edit Employee"><Edit2 size={13} /></button>}
-                                                {canResetPwd && (
-                                                    <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: '#fbbf24' }} onClick={() => setShowResetModal(emp)} title="Reset Password">
-                                                        <Key size={13} />
-                                                    </button>
-                                                )}
-                                                {canEdit && (
-                                                    <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: emp.status === 'inactive' ? 'var(--text-muted)' : '#f59e0b' }} 
-                                                        onClick={async () => { 
-                                                            if (emp.status === 'active') {
-                                                                if(confirm(`Deactivate ${emp.name}? They will lose all system access.`)) {
-                                                                    const { success } = await deactivateUser(emp.id);
-                                                                    if (success) addToast(`${emp.name} deactivated`, "warning", "⚠️");
-                                                                }
-                                                            } else {
-                                                                if(confirm(`Re-activate ${emp.name}?`)) {
-                                                                    const { success } = await activateUser(emp.id);
-                                                                    if (success) addToast(`${emp.name} re-activated`, "success", "✅");
-                                                                }
-                                                            }
-                                                        }} 
-                                                        title={emp.status === 'active' ? "Deactivate Account" : "Re-activate Account"}>
-                                                        {emp.status === 'inactive' ? <ToggleLeft size={16} /> : <ToggleRight size={16} color="#10b981" />}
-                                                    </button>
-                                                )}
-                                                {currentUser?.role === 'super_admin' && (
-                                                    <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: '#ef4444' }} onClick={async () => { 
-                                                        if(confirm(`⚠️ WARNING: This will PERMANENTLY delete ${emp.name} and all their cloud data. \n\nAre you absolutely sure?`)) {
-                                                            const { success, error } = await deleteUser(emp.id);
-                                                            if (success) addToast("Employee deleted permanently", "error", "🗑️");
-                                                            else addToast("Delete failed: " + error, "error", "❌");
-                                                        }
-                                                    }} title="HARD DELETE (Permanent)">
-                                                        <Trash2 size={13} />
-                                                    </button>
-                                                )}
-                                            </div>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <button
+                                                className="btn btn-ghost btn-sm"
+                                                style={{ padding: '5px 8px' }}
+                                                onClick={() => handleEditClick(emp)}
+                                                title={`Edit ${emp.name}`}
+                                            >
+                                                <Edit2 size={14} />
+                                            </button>
                                         </td>
                                     )}
                                 </tr>
@@ -436,6 +423,15 @@ function EmployeesContent() {
                                         ))}
                                     </select>
                                 </div>
+                                <div className="form-group">
+                                    <label className="form-label" style={{ color: 'var(--brand-primary-light)' }}>Functional Manager (Level 2)</label>
+                                    <select className="form-select" value={newEmpForm.functionalManagerId} onChange={e => setNewEmpForm(f => ({ ...f, functionalManagerId: e.target.value }))}>
+                                        <option value="">None / Optional</option>
+                                        {users.filter(u => ['manager', 'core_admin', 'super_admin', 'hr_admin'].includes(u.role)).map(m => (
+                                            <option key={m.id} value={m.id}>{m.name} ({getRoleMeta(m.role, customRoles).name})</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
 
                             <div style={{ fontWeight: 700, fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 6, marginBottom: 14 }}>Payroll Baseline</div>
@@ -544,8 +540,17 @@ function EmployeesContent() {
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Reporting Manager</label>
-                                    <select className="form-select" value={editForm.managerId} onChange={e => setEditForm(f => ({ ...f, managerId: e.target.value }))}>
+                                    <select className="form-select" value={editForm.managerId || ''} onChange={e => setEditForm(f => ({ ...f, managerId: e.target.value }))}>
                                         <option value="">None / Self-Directed</option>
+                                        {users.filter(u => ['manager', 'core_admin', 'super_admin', 'hr_admin'].includes(u.role) && u.id !== showEditModal.id).map(m => (
+                                            <option key={m.id} value={m.id}>{m.name} ({getRoleMeta(m.role, customRoles).name})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label" style={{ color: 'var(--brand-primary-light)' }}>Functional Manager (L2)</label>
+                                    <select className="form-select" value={editForm.functionalManagerId || ''} onChange={e => setEditForm(f => ({ ...f, functionalManagerId: e.target.value }))}>
+                                        <option value="">None / Optional</option>
                                         {users.filter(u => ['manager', 'core_admin', 'super_admin', 'hr_admin'].includes(u.role) && u.id !== showEditModal.id).map(m => (
                                             <option key={m.id} value={m.id}>{m.name} ({getRoleMeta(m.role, customRoles).name})</option>
                                         ))}
@@ -565,9 +570,63 @@ function EmployeesContent() {
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <div style={{ marginTop: 8, borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Account Actions</div>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                    {canResetPwd && (
+                                        <button type="button" className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                                            onClick={() => { setShowEditModal(null); setShowResetModal(showEditModal); }}>
+                                            <Key size={13} /> Reset Password
+                                        </button>
+                                    )}
+                                    {canEdit && (
+                                        <button type="button" className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                                            onClick={() => { setSelectedLifecycleEmp(showEditModal.id); setLifecycleView(showEditModal.status === 'onboarding' ? 'onboarding' : 'offboarding'); setShowEditModal(null); }}>
+                                            <Activity size={13} /> Lifecycle
+                                        </button>
+                                    )}
+                                    {canEdit && (
+                                        <button type="button" className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6, color: showEditModal?.status === 'active' ? '#f59e0b' : '#10b981' }}
+                                            onClick={async () => {
+                                                const emp = showEditModal;
+                                                setShowEditModal(null);
+                                                if (emp.status === 'active') {
+                                                    if (confirm(`Deactivate ${emp.name}? They will lose all system access.`)) {
+                                                        const { success } = await deactivateUser(emp.id);
+                                                        if (success) addToast(`${emp.name} deactivated`, 'warning', '\u26a0\ufe0f');
+                                                    }
+                                                } else {
+                                                    if (confirm(`Re-activate ${emp.name}?`)) {
+                                                        const { success } = await activateUser(emp.id);
+                                                        if (success) addToast(`${emp.name} re-activated`, 'success', '\u2705');
+                                                    }
+                                                }
+                                            }}>
+                                            {showEditModal?.status === 'active' ? <ToggleRight size={14} color="#10b981" /> : <ToggleLeft size={14} />}
+                                            {showEditModal?.status === 'active' ? 'Deactivate' : 'Re-activate'}
+                                        </button>
+                                    )}
+                                    {currentUser?.role === 'super_admin' && (
+                                        <button type="button" className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#ef4444' }}
+                                            onClick={async () => {
+                                                const emp = showEditModal;
+                                                if (confirm(`\u26a0\ufe0f PERMANENTLY delete ${emp.name} and all their data?`)) {
+                                                    setShowEditModal(null);
+                                                    const { success, error } = await deleteUser(emp.id);
+                                                    if (success) addToast('Employee deleted permanently', 'error', '\ud83d\uddd1\ufe0f');
+                                                    else addToast('Delete failed: ' + error, 'error', '\u274c');
+                                                }
+                                            }}>
+                                            <Trash2 size={13} /> Delete Permanently
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowEditModal(null)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary"><Edit2 size={15} /> Save Changes</button>
+                                <button type="submit" className="btn btn-primary" disabled={isEditSubmitting}>
+                                    {isEditSubmitting ? 'Saving...' : <><Edit2 size={15} /> Save Changes</>}
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -580,7 +639,7 @@ function EmployeesContent() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                             <div>
                                 <h3 style={{ fontFamily: 'var(--font-display)' }}>Lifecycle: {lifecycleEmp?.name}</h3>
-                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{lifecycleEmp?.employeeId} • {lifecycleEmp?.designation}</p>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{lifecycleEmp?.displayId} — {lifecycleEmp?.designation}</p>
                             </div>
                             <div className="tabs" style={{ marginBottom: 0 }}>
                                 <button className={`tab-btn ${lifecycleView === 'onboarding' ? 'active' : ''}`} onClick={() => setLifecycleView('onboarding')}>

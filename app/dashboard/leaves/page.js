@@ -138,7 +138,7 @@ function LeavesContent() {
                                         <tr key={u.id}>
                                             <td>
                                                 <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{u.name}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.employeeId}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.displayId}</div>
                                             </td>
                                             {LEAVE_TYPES.map(lt => {
                                                 const val = bal ? (bal[lt.id] ?? bal[lt.id.toLowerCase()]) : (lt.maxPerYear || 0);
@@ -183,15 +183,35 @@ function LeavesContent() {
                                         <td style={{ fontSize: '0.85rem' }}>{lr.to}</td>
                                         <td style={{ fontWeight: 700, color: 'var(--brand-primary-light)' }}>{lr.days}</td>
                                         <td style={{ fontSize: '0.82rem', maxWidth: 200 }}>{lr.reason}</td>
-                                        <td><span className={`status-pill status-${lr.status}`}>{lr.status}</span></td>
-                                        {canApprove && lr.status === 'pending' && (
-                                            <td>
-                                                <div style={{ display: 'flex', gap: 6 }}>
-                                                    <button className="btn btn-success btn-sm" onClick={() => approveLeave(lr.id, currentUser.id, 'Approved', 1, lr.days > 3 ? 2 : 1)}><CheckCircle size={13} /></button>
-                                                    <button className="btn btn-danger btn-sm" onClick={() => rejectLeave(lr.id, currentUser.id, 'Rejected')}><XCircle size={13} /></button>
-                                                </div>
-                                            </td>
-                                        )}
+                                        <td>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                <span className={`status-pill status-${lr.status}`}>{lr.status}</span>
+                                                    {lr.status === 'pending' && (
+                                                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                                            {lr.current_level === 2 
+                                                                ? `Awaiting ${users.find(u => u.id === lr.level2_approver_id)?.name || 'Functional Manager'}'s Approval` 
+                                                                : `Awaiting ${users.find(u => u.id === lr.level1_approver_id)?.name || 'Reporting Manager'}'s Approval`}
+                                                        </span>
+                                                    )}
+                                            </div>
+                                        </td>
+                                        {canApprove && lr.status === 'pending' && (() => {
+                                            const isL1 = lr.current_level === 1 && lr.level1_approver_id === currentUser.id;
+                                            const isL2 = lr.current_level === 2 && lr.level2_approver_id === currentUser.id;
+                                            const isSuper = currentUser.role === 'super_admin';
+                                            const totalLevels = lr.level2_approver_id ? 2 : 1;
+                                            
+                                            if (!isL1 && !isL2 && !isSuper) return <td />;
+                                            
+                                            return (
+                                                <td>
+                                                    <div style={{ display: 'flex', gap: 6 }}>
+                                                        <button className="btn btn-success btn-sm" title={`Approve L${lr.current_level}`} onClick={() => approveLeave(lr.id, currentUser.id, 'Approved', lr.current_level, totalLevels)}><CheckCircle size={13} /></button>
+                                                        <button className="btn btn-danger btn-sm" title="Reject" onClick={() => rejectLeave(lr.id, currentUser.id, 'Rejected')}><XCircle size={13} /></button>
+                                                    </div>
+                                                </td>
+                                            );
+                                        })()}
                                         {canApprove && lr.status !== 'pending' && <td />}
                                     </tr>
                                 ))}
@@ -210,9 +230,43 @@ function LeavesContent() {
                             <div className="form-group">
                                 <label className="form-label">Leave Type</label>
                                 <select className="form-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-                                    {LEAVE_TYPES.filter(lt => !lt.applicableGender || lt.applicableGender === currentUser?.gender).map(lt => <option key={lt.id} value={lt.id}>{lt.name} ({lt.id})</option>)}
+                                    {LEAVE_TYPES.filter(lt => !lt.applicableGender || lt.applicableGender === currentUser?.gender).map(lt => {
+                                        const bal = myBalance ? (myBalance[lt.id] ?? myBalance[lt.id.toLowerCase()] ?? lt.maxPerYear ?? 0) : (lt.maxPerYear || 0);
+                                        const isWFH = lt.id === 'WFH';
+                                        return (
+                                            <option key={lt.id} value={lt.id} disabled={!isWFH && bal <= 0}>
+                                                {lt.name} ({lt.id}){isWFH ? '' : ` — ${bal} day${bal !== 1 ? 's' : ''} left`}
+                                            </option>
+                                        );
+                                    })}
                                 </select>
                             </div>
+                            {(() => {
+                                const lt = LEAVE_TYPES.find(l => l.id === form.type);
+                                const isWFH = form.type === 'WFH';
+                                const bal = !isWFH && myBalance ? (myBalance[form.type] ?? myBalance[form.type?.toLowerCase()] ?? lt?.maxPerYear ?? 0) : null;
+                                const requestedDays = calcDays(form.from, form.to);
+                                if (isWFH) return null;
+                                if (bal !== null && bal <= 0) return (
+                                    <div className="alert" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', borderRadius: 'var(--radius-md)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}>
+                                        <span style={{ fontSize: '1rem' }}>⛔</span>
+                                        <span><strong>No balance left</strong> — You have <strong>0</strong> {form.type} days remaining. Please choose a different leave type or contact HR.</span>
+                                    </div>
+                                );
+                                if (bal !== null && requestedDays > bal) return (
+                                    <div className="alert alert-warning">
+                                        <Info size={15} style={{ flexShrink: 0 }} />
+                                        <span><strong>Insufficient balance:</strong> You are requesting <strong>{requestedDays}</strong> days but only have <strong>{bal}</strong> {form.type} day{bal !== 1 ? 's' : ''} left.</span>
+                                    </div>
+                                );
+                                if (bal !== null) return (
+                                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                                        Available {form.type} balance: <strong style={{ color: '#10b981' }}>{bal} day{bal !== 1 ? 's' : ''}</strong>
+                                    </div>
+                                );
+                                return null;
+                            })()}
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                 <div className="form-group">
                                     <label className="form-label">From Date</label>
@@ -240,7 +294,18 @@ function LeavesContent() {
                             </div>
                             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary">Submit Request</button>
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    disabled={(() => {
+                                        const isWFH = form.type === 'WFH';
+                                        if (isWFH) return false;
+                                        const bal = myBalance ? (myBalance[form.type] ?? myBalance[form.type?.toLowerCase()] ?? 0) : 0;
+                                        return bal <= 0;
+                                    })()}
+                                >
+                                    Submit Request
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -258,7 +323,7 @@ function LeavesContent() {
                                 <select className="form-select" value={adjustForm.userId} onChange={e => setAdjustForm(f => ({ ...f, userId: e.target.value }))} required>
                                     <option value="">Choose an employee...</option>
                                     {users.filter(u => u.id !== currentUser.id).map(u => (
-                                        <option key={u.id} value={u.id}>{u.name} ({u.employeeId})</option>
+                                        <option key={u.id} value={u.id}>{u.name} ({u.displayId})</option>
                                     ))}
                                 </select>
                             </div>
