@@ -187,10 +187,10 @@ function EmployeeContent() {
 
             <div className="grid-4" style={{ marginBottom: 28 }}>
                 {[
-                    { label: 'Net Pay (Feb)', value: `₹${netPayValue.toLocaleString()}`, color: '#10b981', sub: myPayslip ? 'Processed' : 'Projected' },
-                    { label: 'Leave Balance (CL)', value: myBalance?.CL ?? (LEAVE_TYPES.find(t=>t.id==='CL')?.maxPerYear || 12), color: '#06b6d4', sub: 'Casual Leave' },
-                    { label: 'Leave Balance (EL)', value: myBalance?.EL ?? (LEAVE_TYPES.find(t=>t.id==='EL')?.maxPerYear || 15), color: '#6366f1', sub: 'Earned Leave' },
-                    { label: 'OKR Progress', value: myOKR ? `${myOKR.overallProgress}%` : '—', color: '#f59e0b', sub: 'Q1 2025' },
+                    { label: 'Net Pay (Feb)', value: `₹${netPayValue.toLocaleString()}`, color: '#10b981', sub: myPayslip ? 'Processed (Actual)' : 'Projected (Calculated)' },
+                    { label: 'Leave Balance (CL)', value: myBalance?.CL ?? '—', color: '#06b6d4', sub: 'Casual Leave' },
+                    { label: 'Leave Balance (EL)', value: myBalance?.EL ?? '—', color: '#6366f1', sub: 'Earned Leave' },
+                    { label: 'OKR Progress', value: myOKR?.overallProgress !== undefined ? `${myOKR.overallProgress}%` : '—', color: '#f59e0b', sub: 'Q1 2025' },
                 ].map(s => (
                     <div key={s.label} className="stat-card">
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>{s.label}</div>
