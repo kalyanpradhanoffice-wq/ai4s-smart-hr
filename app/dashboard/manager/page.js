@@ -15,8 +15,8 @@ function ManagerContent() {
     } = useApp();
     const [activeTab, setActiveTab] = useState('leaves');
 
-    const pendingLeaves = leaveRequests.filter(l => l.status === 'pending');
-    const pendingRegs = regularizations.filter(r => r.status === 'pending');
+    const pendingLeaves = leaveRequests.filter(l => (l.status || '').toLowerCase() === 'pending');
+    const pendingRegs = regularizations.filter(r => (r.status || '').toLowerCase() === 'pending');
 
     function getEmp(id) { return users.find(u => u.id === id); }
 
@@ -34,12 +34,13 @@ function ManagerContent() {
     const teamMembers = users.filter(u => u.reportingTo === currentUser?.id);
     const todayStr = new Date().toISOString().split('T')[0];
 
-    const teamOnLeave = leaveRequests.filter(l =>
-        teamMembers.some(m => m.id === l.employeeId) &&
-        l.status === 'approved' &&
-        todayStr >= (l.from_date || l.from) &&
-        todayStr <= (l.to_date || l.to)
-    );
+    const teamOnLeave = leaveRequests.filter(l => {
+        const isMatchingUser = teamMembers.some(m => m.id === (l.employee_id || l.employeeId));
+        const isApproved = (l.status || '').toLowerCase() === 'approved';
+        const s = (l.from_date || l.from || '').split('T')[0];
+        const e = (l.to_date || l.to || '').split('T')[0];
+        return isMatchingUser && isApproved && todayStr >= s && todayStr <= e;
+    });
 
     const teamAttendanceHistory = attendance
         .filter(a => teamMembers.some(m => m.id === a.userId))
@@ -158,8 +159,8 @@ function ManagerContent() {
                                         <td>{record.punchIn || '--:--'}</td>
                                         <td>{record.punchOut || '--:--'}</td>
                                         <td>
-                                            <span className={`status-pill status-${record.status}`}>
-                                                {record.status}
+                                            <span className={`status-pill status-${getAttendanceStatus(record.userId, record.date)}`}>
+                                                {getAttendanceStatus(record.userId, record.date)}
                                             </span>
                                         </td>
                                     </tr>

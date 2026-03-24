@@ -3,7 +3,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Users, Clock, CheckCheck, AlertTriangle, TrendingUp, DollarSign, Activity, Shield, FileText, Star, Briefcase } from 'lucide-react';
+import { Users, Clock, CheckCheck, AlertTriangle, TrendingUp, DollarSign, Activity, Shield, FileText, Star, Briefcase, Edit, CreditCard } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, Cell } from 'recharts';
 
 const payrollTrend = [
@@ -17,12 +17,21 @@ const attendanceTrend = [
 
 function HRContent() {
     const router = useRouter();
-    const { users, leaveRequests, payroll, notifications } = useApp();
+    const { users, leaveRequests, payroll, notifications, regularizations, loans, salaryUpgrades } = useApp();
 
-    const pending = leaveRequests.filter(l => l.status === 'pending').length;
-    const approved = leaveRequests.filter(l => l.status === 'approved').length;
+    const pendingRegs = (regularizations || []).filter(r => (r.status || '').toLowerCase() === 'pending').length;
+    const pendingLoans = (loans || []).filter(l => (l.status || '').toLowerCase() === 'pending').length;
+    const pendingUpgrades = (salaryUpgrades || []).filter(s => (s.status || '').toLowerCase() === 'pending').length;
+    const pendingTotal = pendingRegs + pendingLoans + pendingUpgrades;
+    const approved = leaveRequests.filter(l => (l.status || '').toLowerCase() === 'approved').length;
     const totalPayroll = payroll.reduce((s, p) => s + p.netPay, 0);
-    const onLeave = leaveRequests.filter(l => l.status === 'approved' && new Date(l.from) <= new Date() && new Date(l.to) >= new Date()).length;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const onLeave = leaveRequests.filter(l => {
+        const isApproved = (l.status || '').toLowerCase() === 'approved';
+        const s = (l.from_date || l.from || '').split('T')[0];
+        const e = (l.to_date || l.to || '').split('T')[0];
+        return isApproved && todayStr >= s && todayStr <= e;
+    }).length;
 
     const complianceItems = [
         { label: 'EPF Filing', status: 'green', due: 'Mar 15, 2025' },
@@ -60,12 +69,12 @@ function HRContent() {
             </div>
 
             {/* Stats row */}
-            <div className="grid-4" style={{ marginBottom: 28 }}>
+            <div className="grid-4" style={{ marginBottom: 20 }}>
                 {[
                     { label: 'Total Employees', value: users.length, icon: Users, color: '#6366f1', sub: 'All departments', href: '/dashboard/employees' },
                     { label: 'On Leave Today', value: onLeave, icon: Clock, color: '#f59e0b', sub: 'Approved leaves', href: '/dashboard/leaves' },
-                    { label: 'Pending Approvals', value: pending, icon: AlertTriangle, color: '#ef4444', sub: 'Require action', href: '/dashboard/approvals' },
-                    { label: 'Payroll (Feb)', value: `₹${(totalPayroll / 1000).toFixed(0)}K`, icon: DollarSign, color: '#10b981', sub: 'Net disbursed', href: '/dashboard/payroll' },
+                    { label: 'Pending Approvals', value: pendingTotal, icon: AlertTriangle, color: '#ef4444', sub: 'Non-leave requests', href: '/dashboard/approvals' },
+                    { label: 'Payroll (Total)', value: `₹${(totalPayroll / 1000).toFixed(0)}K`, icon: DollarSign, color: '#10b981', sub: 'Net disbursed', href: '/dashboard/payroll' },
                 ].map(s => (
                     <div key={s.label} className="stat-card"
                         onClick={() => router.push(s.href)}
@@ -83,6 +92,28 @@ function HRContent() {
                             </div>
                         </div>
                         <div style={{ marginTop: 8, fontSize: '0.7rem', color: s.color, fontWeight: 600 }}>Click to view →</div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Sub-Approvals Row */}
+            <div className="grid-3" style={{ marginBottom: 28 }}>
+                {[
+                    { label: 'Attendance Corrections', value: pendingRegs, icon: Edit, color: '#6366f1', href: '/dashboard/attendance?tab=regs' },
+                    { label: 'Loan Requests', value: pendingLoans, icon: CreditCard, color: '#8b5cf6', href: '/dashboard/loans' },
+                    { label: 'Salary Upgrades', value: pendingUpgrades, icon: TrendingUp, color: '#ec4899', href: '/dashboard/payroll?tab=upgrades' },
+                ].map(s => (
+                    <div key={s.label} className="stat-card"
+                        onClick={() => router.push(s.href)}
+                        style={{ cursor: 'pointer', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 10, background: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <s.icon size={18} color={s.color} />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>{s.label}</div>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-main)', marginTop: 2 }}>{s.value} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>Pending</span></div>
+                        </div>
+                        <div style={{ color: 'var(--text-muted)', opacity: 0.5 }}>→</div>
                     </div>
                 ))}
             </div>

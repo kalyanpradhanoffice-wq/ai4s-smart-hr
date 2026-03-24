@@ -152,7 +152,7 @@ function EmployeeContent() {
 
     const badges = ['🚀', '⭐', '💡', '🏆', '❤️', '🎯', '🔥', '👏'];
 
-    const netPayValue = myPayslip?.netPay ?? projectedNet;
+    const netPayValue = myPayslip?.netPay ?? 0;
 
     return (
         <div className="animate-fade-in">
@@ -187,7 +187,7 @@ function EmployeeContent() {
 
             <div className="grid-4" style={{ marginBottom: 28 }}>
                 {[
-                    { label: 'Net Pay (Feb)', value: `₹${netPayValue.toLocaleString()}`, color: '#10b981', sub: myPayslip ? 'Processed (Actual)' : 'Projected (Calculated)' },
+                    { label: 'Net Pay (Feb)', value: netPayValue > 0 ? `₹${netPayValue.toLocaleString()}` : '—', color: '#10b981', sub: myPayslip ? 'Processed (Actual)' : 'Awaiting Processing' },
                     { label: 'Leave Balance (CL)', value: myBalance?.CL ?? '—', color: '#06b6d4', sub: 'Casual Leave' },
                     { label: 'Leave Balance (EL)', value: myBalance?.EL ?? '—', color: '#6366f1', sub: 'Earned Leave' },
                     { label: 'OKR Progress', value: myOKR?.overallProgress !== undefined ? `${myOKR.overallProgress}%` : '—', color: '#f59e0b', sub: 'Q1 2025' },

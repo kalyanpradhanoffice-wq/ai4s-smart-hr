@@ -2,6 +2,7 @@
 import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { can } from '@/lib/rbac';
 import { PERMISSIONS } from '@/lib/constants';
 import { Clock, MapPin, CheckCircle, AlertCircle, Plus, Edit, Shield, History, Info, Calendar, Users, Search, BarChart2, Table, Download } from 'lucide-react';
@@ -9,11 +10,11 @@ import * as XLSX from 'xlsx';
 
 const STATUS_COLORS = {
     present: '#10b981', absent: '#ef4444', leave: '#06b6d4',
-    wfh: '#8b5cf6', 'half-day': '#f59e0b',
+    wfh: '#8b5cf6', 'half-day': '#f59e0b', 'weekly-off': '#94a3b8',
 };
 
 const STATUS_LABEL = {
-    present: 'P', absent: 'A', leave: 'L', wfh: 'WFH', 'half-day': 'HL',
+    present: 'P', absent: 'A', leave: 'L', wfh: 'WFH', 'half-day': 'HL', 'weekly-off': 'WO',
 };
 
 const STATUS_OPTIONS = [
@@ -42,11 +43,20 @@ function AttendanceContent() {
         currentUser, users, attendance, regularizations,
         requestRegularization, approveRegularization, rejectRegularization,
         markAttendance, hrCorrectAttendance, leaveBalances, leaveRequests,
+        getAttendanceStatus
     } = useApp();
 
-    const [activeTab, setActiveTab] = useState('my');
+    const searchParams = useSearchParams();
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'my');
+
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab) setActiveTab(tab);
+    }, [searchParams]);
     const [showRegModal, setShowRegModal] = useState(false);
-    const [regForm, setRegForm] = useState({ date: '', correctionType: 'missing_in', reason: '' });
+    const [regForm, setRegForm] = useState({ date: '', correctionType: 'missing_in', reason: '', punchIn: '', punchOut: '' });
+    const [regError, setRegError] = useState('');
+    const [isSubmittingReg, setIsSubmittingReg] = useState(false);
     const [punchStatus, setPunchStatus] = useState('out');
     const [isPunching, setIsPunching] = useState(false);
     const [showCamera, setShowCamera] = useState(false);
@@ -73,11 +83,20 @@ function AttendanceContent() {
 
     const thisMonthStr = new Date().toISOString().slice(0, 7);
     const thisMonth = myAttendance.filter(a => a.date.startsWith(thisMonthStr));
-    const presentDays = thisMonth.filter(a => a.status === 'present' || a.status === 'regularized').length;
-    const absentDays = thisMonth.filter(a => a.status === 'absent').length;
-    const leaveDays = thisMonth.filter(a => a.status === 'leave').length;
-    const wfhDays = thisMonth.filter(a => a.status === 'wfh').length;
+    const thisMonthDays = Array.from({ length: new Date().getDate() }, (_, i) => {
+        const d = new Date(); d.setDate(i + 1);
+        return d.toISOString().split('T')[0];
+    });
+    const presentDays = thisMonthDays.filter(date => {
+        const s = getAttendanceStatus(currentUser?.id, date);
+        return s === 'present' || s === 'late' || s === 'regularized';
+    }).length;
+    const leaveDays = thisMonthDays.filter(date => getAttendanceStatus(currentUser?.id, date) === 'leave').length;
+    const wfhDays = thisMonthDays.filter(date => getAttendanceStatus(currentUser?.id, date) === 'wfh').length;
+    const holidayDays = thisMonthDays.filter(date => getAttendanceStatus(currentUser?.id, date) === 'holiday').length;
     const halfDayDays = thisMonth.filter(a => a.status === 'half-day').length;
+    const workingMonthDays = thisMonthDays.filter(date => new Date(date).getDay() !== 0).length;
+    const absentDays = Math.max(0, workingMonthDays - presentDays - leaveDays - wfhDays - halfDayDays - holidayDays);
     const myLeaveBalance = leaveBalances?.find(b => b.userId === currentUser?.id);
 
     const last14 = Array.from({ length: 14 }, (_, i) => {
@@ -106,11 +125,31 @@ function AttendanceContent() {
         } finally { setIsPunching(false); }
     }
 
-    function handleRegularization(e) {
+    async function handleRegularization(e) {
         e.preventDefault();
-        requestRegularization({ ...regForm, employeeId: currentUser.id });
-        setShowRegModal(false);
-        setRegForm({ date: '', correctionType: 'missing_in', reason: '' });
+        if (isSubmittingReg) return;
+        
+        // Final validation
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const minDate = sevenDaysAgo.toISOString().split('T')[0];
+        
+        if (regForm.date < minDate) {
+            setRegError('You cannot request correction for dates older than 7 days.');
+            return;
+        }
+
+        setIsSubmittingReg(true);
+        try {
+            const res = await requestRegularization({ ...regForm, employeeId: currentUser.id });
+            if (res) {
+                setShowRegModal(false);
+                setRegForm({ date: '', correctionType: 'missing_in', reason: '', punchIn: '', punchOut: '' });
+                setRegError('');
+            }
+        } finally {
+            setIsSubmittingReg(false);
+        }
     }
 
     function handleHRCorrection(e) {
@@ -152,12 +191,10 @@ function AttendanceContent() {
                         <Users size={13} style={{ marginRight: 5 }} />Team Attendance
                     </button>
                 )}
-                {canManageAttendance && (
-                    <button className={`tab-btn ${activeTab === 'regs' ? 'active' : ''}`} onClick={() => setActiveTab('regs')}>
-                        <Edit size={13} style={{ marginRight: 5 }} />Correction Requests
-                        {pendingRegularizations.length > 0 && <span className="notification-badge" style={{ position: 'static', marginLeft: 4 }}>{pendingRegularizations.length}</span>}
-                    </button>
-                )}
+                <button className={`tab-btn ${activeTab === 'regs' ? 'active' : ''}`} onClick={() => setActiveTab('regs')}>
+                    <Edit size={13} style={{ marginRight: 5 }} />Correction Requests
+                    {pendingRegularizations.length > 0 && <span className="notification-badge" style={{ position: 'static', marginLeft: 4 }}>{pendingRegularizations.length}</span>}
+                </button>
                 {isAdminView && (
                     <button className={`tab-btn ${activeTab === 'grid-status' ? 'active' : ''}`} onClick={() => setActiveTab('grid-status')}>
                         <BarChart2 size={13} style={{ marginRight: 5 }} />Attendance History By Status
@@ -174,17 +211,18 @@ function AttendanceContent() {
             {activeTab === 'my' && (
                 <>
                     {/* Stats */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 'var(--space-lg)', marginBottom: 28 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 'var(--space-md)', marginBottom: 28 }}>
                         {[
                             { label: 'Present (Month)', value: presentDays, color: '#10b981' },
                             { label: 'Absent (Month)', value: absentDays, color: '#ef4444' },
                             { label: 'Leave (Month)', value: leaveDays, color: '#06b6d4' },
                             { label: 'WFH (Month)', value: wfhDays, color: '#8b5cf6' },
                             { label: 'Half Day (Month)', value: halfDayDays, color: '#f59e0b' },
+                            { label: 'Holiday (Month)', value: holidayDays, color: '#94a3b8' },
                         ].map(s => (
-                            <div key={s.label} className="stat-card">
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>{s.label}</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 800, fontFamily: 'var(--font-display)', color: s.color, marginTop: 8 }}>{s.value}</div>
+                            <div key={s.label} className="stat-card" style={{ padding: '16px 12px' }}>
+                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 800, fontFamily: 'var(--font-display)', color: s.color, marginTop: 6 }}>{s.value}</div>
                             </div>
                         ))}
                     </div>
@@ -203,8 +241,13 @@ function AttendanceContent() {
                             </div>
                             {(() => {
                                 const onLeaveToday = leaveRequests?.some(l => {
-                                    const start = l.from_date || l.from; const end = l.to_date || l.to;
-                                    return today >= start && today <= end && l.status === 'approved' && l.type !== 'WFH';
+                                    const rawStart = l.from_date || l.from || '';
+                                    const rawEnd = l.to_date || l.to || '';
+                                    const s = rawStart.split('T')[0];
+                                    const e = rawEnd.split('T')[0];
+                                    const isApproved = (l.status || '').toLowerCase() === 'approved';
+                                    const isMatchingUser = (l.employee_id === currentUser?.id) || (l.employeeId === currentUser?.id);
+                                    return isMatchingUser && today >= s && today <= e && isApproved && l.type !== 'WFH';
                                 });
                                 if (onLeaveToday) return <div className="alert alert-info" style={{ justifyContent: 'center', marginBottom: 16 }}><Info size={16} /> You are on approved leave today</div>;
                                 return todayRecord ? (
@@ -225,13 +268,8 @@ function AttendanceContent() {
                             <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 16 }}>Last 14 Days</h3>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
                                 {last14.map(date => {
-                                    const rec = myAttendance.find(a => a.date === date);
-                                    let status = rec?.status;
-                                    if (!status) {
-                                        const leaveRec = leaveRequests?.find(l => { const s = l.from_date || l.from; const e = l.to_date || l.to; return date >= s && date <= e && l.status === 'approved'; });
-                                        if (leaveRec) status = leaveRec.type === 'WFH' ? 'wfh' : 'leave';
-                                        else status = new Date(date) > new Date() ? 'future' : 'absent';
-                                    }
+                                    const isFuture = new Date(date) > new Date();
+                                    const status = isFuture ? 'future' : getAttendanceStatus(currentUser?.id, date);
                                     const color = STATUS_COLORS[status] || STATUS_COLORS.absent;
                                     const isToday = date === today;
                                     const isSelected = selectedCalDate === date;
@@ -262,7 +300,12 @@ function AttendanceContent() {
                                                     <div style={{ fontWeight: 700, color: '#f43f5e' }}>{rec.punchOut || '--:--'}</div>
                                                 </div>
                                             </div>
-                                        ) : <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No punch records for this date.</div>}
+                                        ) : (() => {
+                                            const status = getAttendanceStatus(currentUser?.id, selectedCalDate);
+                                            if (status === 'leave') return <div style={{ fontSize: '0.8rem', color: 'var(--brand-primary-light)', fontWeight: 600 }}>No punch records for this date.<br/>Leave Approved</div>;
+                                            if (status === 'holiday') return <div style={{ fontSize: '0.8rem', color: 'var(--brand-primary-light)', fontWeight: 600 }}>No punch records for this date.<br/>Public Holiday</div>;
+                                            return <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No punch records for this date.</div>;
+                                        })()}
                                     </div>
                                 );
                             })()}
@@ -348,6 +391,18 @@ function AttendanceContent() {
                                 }).map(a => {
                                     const emp = users.find(u => u.id === a.userId);
                                     const hours = a.punchIn && a.punchOut ? (() => { const [ih, im] = a.punchIn.split(':').map(Number); const [oh, om] = a.punchOut.split(':').map(Number); const diff = (oh * 60 + om) - (ih * 60 + im); return `${Math.floor(diff / 60)}h ${diff % 60}m`; })() : '—';
+                                    
+                                    const leaveRec = leaveRequests?.find(l => {
+                                        const rawStart = l.from_date || l.from || '';
+                                        const rawEnd = l.to_date || l.to || '';
+                                        const s = rawStart.split('T')[0];
+                                        const e = rawEnd.split('T')[0];
+                                        const isApproved = (l.status || '').toLowerCase() === 'approved';
+                                        const isMatchingUser = (l.employee_id === a.userId) || (l.employeeId === a.userId);
+                                        return a.date >= s && a.date <= e && isApproved && isMatchingUser;
+                                    });
+                                    const status = leaveRec ? (leaveRec.type === 'WFH' ? 'wfh' : 'leave') : a.status;
+
                                     return (
                                         <tr key={a.id}>
                                             <td>
@@ -360,7 +415,7 @@ function AttendanceContent() {
                                                 </div>
                                             </td>
                                             <td style={{ fontSize: '0.85rem' }}>{a.date}</td>
-                                            <td><span className={`status-pill status-${a.status}`}>{a.status}</span></td>
+                                            <td><span className={`status-pill status-${status}`}>{status}</span></td>
                                             <td style={{ fontSize: '0.85rem' }}>{a.punchIn || '—'}</td>
                                             <td style={{ fontSize: '0.85rem' }}>{a.punchOut || '—'}</td>
                                             <td style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--brand-primary-light)' }}>{hours}</td>
@@ -386,14 +441,14 @@ function AttendanceContent() {
             )}
 
             {/* ── CORRECTION REQUESTS TAB ── */}
-            {activeTab === 'regs' && canManageAttendance && (
+            {activeTab === 'regs' && (
                 <div className="card" style={{ padding: 0 }}>
                     <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
                         <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Attendance Correction Requests</h3>
                     </div>
                     <div className="table-wrapper" style={{ boxShadow: 'none', border: 'none' }}>
                         <table className="data-table">
-                            <thead><tr><th>Employee</th><th>Date</th><th>Correction Type</th><th>Reason</th><th>Status</th>{canManageAttendance && <th>Actions</th>}</tr></thead>
+                            <thead><tr><th>Employee</th><th>Date</th><th>Correction Type</th><th>Reason</th><th>Status</th>{canManageAttendance && <th style={{ textAlign: 'right' }}>Actions</th>}</tr></thead>
                             <tbody>
                                 {regularizations.filter(r => {
                                     if (canViewAll) return true;
@@ -429,10 +484,18 @@ function AttendanceContent() {
                                                         const isL2 = r.current_level === 2 && r.level2_approver_id === currentUser.id;
                                                         const isSuper = currentUser.role === 'super_admin' || currentUser.role === 'hr_admin';
                                                         const totalLevels = r.level2_approver_id ? 2 : 1;
+                                                        const alreadyActed = (r.approvals || []).some(a => a.approvedBy === currentUser.id);
+
                                                         if (isL1 || isL2 || isSuper) return (
                                                             <div style={{ display: 'flex', gap: 6 }}>
-                                                                <button className="btn btn-primary btn-sm" style={{ padding: '4px 8px', fontSize: '0.7rem' }} onClick={() => approveRegularization(r.id, currentUser.id, 'Approved', r.current_level, totalLevels)}>Approve</button>
-                                                                <button className="btn btn-danger btn-sm" style={{ padding: '4px 8px', fontSize: '0.7rem' }} onClick={() => rejectRegularization(r.id, currentUser.id, 'Rejected')}>Reject</button>
+                                                                {alreadyActed ? (
+                                                                    <span style={{ fontSize: '0.72rem', color: 'var(--brand-primary-light)', fontWeight: 600 }}>✓ Action Taken</span>
+                                                                ) : (
+                                                                    <>
+                                                                        <button className="btn btn-primary btn-sm" style={{ padding: '4px 8px', fontSize: '0.7rem' }} onClick={() => approveRegularization(r.id, currentUser.id, 'Approved', r.current_level, totalLevels)}>Approve</button>
+                                                                        <button className="btn btn-danger btn-sm" style={{ padding: '4px 8px', fontSize: '0.7rem' }} onClick={() => rejectRegularization(r.id, currentUser.id, 'Rejected')}>Reject</button>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         );
                                                         return <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Waiting for {r.current_level === 2 ? users.find(u => u.id === r.level2_approver_id)?.name : users.find(u => u.id === r.level1_approver_id)?.name}</span>;
@@ -461,32 +524,126 @@ function AttendanceContent() {
                 />
             )}
 
-            {/* Self-Correction Modal */}
-            {showRegModal && (
-                <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowRegModal(false)}>
-                    <div className="modal-box">
-                        <h3 style={{ marginBottom: 16, fontFamily: 'var(--font-display)' }}>Request Attendance Correction</h3>
-                        <div className="alert alert-info" style={{ marginBottom: 16 }}><AlertCircle size={15} style={{ flexShrink: 0 }} /> Submit a correction request. It will go to your manager for approval.</div>
-                        <form onSubmit={handleRegularization} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                            <div className="form-group"><label className="form-label">Date</label><input type="date" className="form-input" value={regForm.date} onChange={e => setRegForm(f => ({ ...f, date: e.target.value }))} required /></div>
-                            <div className="form-group">
-                                <label className="form-label">Correction Type</label>
-                                <select className="form-select" value={regForm.correctionType} onChange={e => setRegForm(f => ({ ...f, correctionType: e.target.value }))}>
-                                    <option value="missing_in">Missing Punch In</option>
-                                    <option value="missing_out">Missing Punch Out</option>
-                                    <option value="wrong_status">Wrong Status</option>
-                                    <option value="both">Both Punch In & Out Missing</option>
-                                </select>
+            {showRegModal && (() => {
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                const minRegDate = sevenDaysAgo.toISOString().split('T')[0];
+                const maxRegDate = new Date().toISOString().split('T')[0];
+                const existing = attendance.find(a => (a.userId === currentUser.id) && a.date === regForm.date);
+                
+                return (
+                    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowRegModal(false)}>
+                        <div className="modal-box" style={{ maxWidth: 480 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(99,102,241,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Edit size={18} color="var(--brand-primary-light)" /></div>
+                                <h3 style={{ fontFamily: 'var(--font-display)' }}>Attendance Correction</h3>
                             </div>
-                            <div className="form-group"><label className="form-label">Reason</label><textarea className="form-textarea" placeholder="Explain the reason..." value={regForm.reason} onChange={e => setRegForm(f => ({ ...f, reason: e.target.value }))} required /></div>
-                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                                <button type="button" className="btn btn-ghost" onClick={() => setShowRegModal(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary">Submit Request</button>
+                            
+                            <div className="alert alert-info" style={{ marginBottom: 20, fontSize: '0.8rem' }}>
+                                <AlertCircle size={14} style={{ flexShrink: 0 }} /> 
+                                Corrections allowed for last 7 days only (since {new Date(sevenDaysAgo).toLocaleDateString()}).
                             </div>
-                        </form>
+
+                            {regError && <div className="alert alert-danger" style={{ marginBottom: 16, fontSize: '0.8rem' }}>{regError}</div>}
+
+                            <form onSubmit={handleRegularization} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                <div className="form-group">
+                                    <label className="form-label">Date</label>
+                                    <input 
+                                        type="date" 
+                                        className="form-input" 
+                                        value={regForm.date} 
+                                        min={minRegDate}
+                                        max={maxRegDate}
+                                        onChange={e => {
+                                            const d = e.target.value;
+                                            const rec = attendance.find(a => (a.userId === currentUser.id) && a.date === d);
+                                            setRegForm(f => ({ ...f, date: d, punchIn: rec?.punchIn || '', punchOut: rec?.punchOut || '' }));
+                                            if (d < minRegDate) setRegError('Selection restricted to the last 7 days.');
+                                            else setRegError('');
+                                        }} 
+                                        required 
+                                    />
+                                </div>
+
+                                {regForm.date && (
+                                    <div style={{ background: 'var(--bg-glass)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', marginBottom: 4 }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, marginBottom: 8, letterSpacing: '0.04em' }}>Existing Backend Record</div>
+                                        <div style={{ display: 'flex', gap: 24 }}>
+                                            <div>
+                                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Punch In</div>
+                                                <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{existing?.punchIn || '--:--'}</div>
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Punch Out</div>
+                                                <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{existing?.punchOut || '--:--'}</div>
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Status</div>
+                                                <span style={{ fontSize: '0.75rem' }} className={`status-pill status-${existing?.status || 'absent'}`}>{existing?.status || 'No Record'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="form-group">
+                                    <label className="form-label">Correction Type</label>
+                                    <select className="form-select" value={regForm.correctionType} onChange={e => setRegForm(f => ({ ...f, correctionType: e.target.value }))}>
+                                        <option value="missing_in">Missing Punch In</option>
+                                        <option value="missing_out">Missing Punch Out</option>
+                                        <option value="both">Both Punch In & Out Missing</option>
+                                        <option value="wrong_status">Status Correction</option>
+                                    </select>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                                    <div className="form-group">
+                                        <label className="form-label" style={{ opacity: regForm.correctionType === 'missing_out' ? 0.5 : 1 }}>Correct Punch In</label>
+                                        <input 
+                                            type="time" 
+                                            className="form-input" 
+                                            value={regForm.punchIn} 
+                                            disabled={regForm.correctionType === 'missing_out'}
+                                            onChange={e => setRegForm(f => ({ ...f, punchIn: e.target.value }))}
+                                            required={regForm.correctionType !== 'missing_out'}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label" style={{ opacity: regForm.correctionType === 'missing_in' ? 0.5 : 1 }}>Correct Punch Out</label>
+                                        <input 
+                                            type="time" 
+                                            className="form-input" 
+                                            value={regForm.punchOut} 
+                                            disabled={regForm.correctionType === 'missing_in'}
+                                            onChange={e => setRegForm(f => ({ ...f, punchOut: e.target.value }))}
+                                            required={regForm.correctionType !== 'missing_in'} 
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Reason for Correction</label>
+                                    <textarea 
+                                        className="form-textarea" 
+                                        placeholder="Please provide a valid reason for this request..." 
+                                        value={regForm.reason} 
+                                        onChange={e => setRegForm(f => ({ ...f, reason: e.target.value }))} 
+                                        required 
+                                        style={{ minHeight: 80 }}
+                                    />
+                                </div>
+
+                                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+                                    <button type="button" className="btn btn-ghost" onClick={() => setShowRegModal(false)} disabled={isSubmittingReg}>Cancel</button>
+                                    <button type="submit" className="btn btn-primary" disabled={!!regError || !regForm.date || isSubmittingReg}>
+                                        {isSubmittingReg ? 'Submitting...' : 'Submit Request'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* HR Correction Modal */}
             {showHRModal && (
@@ -596,15 +753,35 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
     function getStatusForDay(userId, day) {
         const dateStr = `${yearStr}-${monthStr}-${String(day).padStart(2, '0')}`;
         const rec = attendance.find(a => a.userId === userId && a.date === dateStr);
-        if (rec) return { status: rec.status, punchIn: rec.punchIn, punchOut: rec.punchOut };
+        
+        // 1. ALWAYS check leaves first for the status (Source of Truth)
         const leaveRec = leaveRequests?.find(l => {
-            const s = l.from_date || l.from; const e = l.to_date || l.to;
-            return dateStr >= s && dateStr <= e && l.status === 'approved' && l.employee_id === userId;
+            const rawStart = l.from_date || l.from || '';
+            const rawEnd = l.to_date || l.to || '';
+            const s = rawStart.split('T')[0];
+            const e = rawEnd.split('T')[0];
+            const isApproved = l.status?.toLowerCase() === 'approved';
+            const isMatchingUser = (l.employee_id === userId) || (l.employeeId === userId);
+            return dateStr >= s && dateStr <= e && isApproved && isMatchingUser;
         });
-        if (leaveRec) return { status: leaveRec.type === 'WFH' ? 'wfh' : 'leave', punchIn: null, punchOut: null };
+
+        if (leaveRec) {
+            const type = (leaveRec.type || '').toUpperCase();
+            return { 
+                status: type === 'WFH' ? 'wfh' : 'leave', 
+                punchIn: rec?.punchIn || null, 
+                punchOut: rec?.punchOut || null 
+            };
+        }
+
+        // 2. If no leave, use attendance record status
+        if (rec) return { status: rec.status?.toLowerCase(), punchIn: rec.punchIn, punchOut: rec.punchOut };
+
+        // 3. Fallbacks
         const dateObj = new Date(dateStr);
         if (dateObj > new Date()) return { status: 'future', punchIn: null, punchOut: null };
-        return { status: null, punchIn: null, punchOut: null };
+        if (isSunday(day)) return { status: 'weekly-off', punchIn: null, punchOut: null };
+        return { status: 'absent', punchIn: null, punchOut: null };
     }
 
     function isSunday(day) {
@@ -641,6 +818,8 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
                     return status && status !== 'future' ? (STATUS_LABEL[status] || status) : '';
                 } else {
                     if (punchIn || punchOut) return `${punchIn || '--:--'} / ${punchOut || '--:--'}`;
+                    if (status === 'weekly-off') return 'WO';
+                    if (status === 'absent') return '-';
                     if (status && status !== 'future') return STATUS_LABEL[status] || status;
                     return '';
                 }
@@ -787,8 +966,17 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
                                                     <span style={{ color: '#f43f5e', fontSize: '0.45rem', lineHeight: 1.1, fontWeight: 700 }}>{punchOut ? punchOut.slice(0,5) : '–'}</span>
                                                 </div>
                                             ) : status && status !== 'future' ? (
-                                                <div title={status} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 22, borderRadius: 4, background: `${color}20`, border: `1px solid ${color}50`, fontSize: '0.6rem', fontWeight: 700, color, userSelect: 'none' }}>
-                                                    {STATUS_LABEL[status] || '?'}
+                                                <div
+                                                    title={status === 'weekly-off' ? 'Weekly Off' : `In: ${punchIn || '—'}  |  Out: ${punchOut || '—'}`}
+                                                    style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: 26, height: 22, borderRadius: 4, background: `${color}22`, border: `1px solid ${color}40`, cursor: 'default', gap: 0, userSelect: 'none' }}
+                                                >
+                                                    {status === 'weekly-off' ? (
+                                                        <span style={{ color: color, fontSize: '0.6rem', fontWeight: 800 }}>WO</span>
+                                                    ) : status === 'absent' ? (
+                                                        <span style={{ color: color, fontSize: '1rem', fontWeight: 700, paddingBottom: 2 }}>-</span>
+                                                    ) : (
+                                                        <span style={{ color: color, fontSize: '0.6rem', fontWeight: 800 }}>{STATUS_LABEL[status] || status}</span>
+                                                    )}
                                                 </div>
                                             ) : <span style={{ color: 'var(--border-subtle)', fontSize: '0.65rem' }}>–</span>}
                                         </td>

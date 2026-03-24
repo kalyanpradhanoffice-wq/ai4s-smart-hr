@@ -1,7 +1,8 @@
 'use client';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { calculateEPF, calculateESI, STATUTORY, PERMISSIONS } from '@/lib/constants';
 import { can } from '@/lib/rbac';
 import { Download, TrendingUp, Info, CheckCircle, FileSpreadsheet, History } from 'lucide-react';
@@ -11,7 +12,13 @@ function PayrollContent() {
     const [selectedUser, setSelectedUser] = useState(currentUser?.id);
     const [regime, setRegime] = useState('new');
     const [voluntaryEPF, setVoluntaryEPF] = useState(false);
-    const [activeTab, setActiveTab] = useState('payslip');
+    const searchParams = useSearchParams();
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'payslip');
+
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab) setActiveTab(tab);
+    }, [searchParams]);
 
     const canRunPayroll = can(currentUser, PERMISSIONS.RUN_PAYROLL);
     const canViewAll = can(currentUser, PERMISSIONS.VIEW_ALL_PAYSLIPS);
@@ -209,45 +216,6 @@ function PayrollContent() {
                 )}
             </div>
             
-            {/* ── SALARY UPGRADE APPROVALS (SUPER ADMIN BYPASS) ── */}
-            {salaryUpgrades.some(su => su.status === 'pending') && (
-                <div className="card" style={{ marginBottom: 28, border: '1px solid #8b5cf630', background: 'rgba(139, 92, 246, 0.03)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                        <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#8b5cf6' }}>Salary Upgrade Approvals</h3>
-                        <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>{salaryUpgrades.filter(su => su.status === 'pending').length} Pending</span>
-                    </div>
-                    <div className="table-wrapper" style={{ boxShadow: 'none', background: 'transparent', border: 'none' }}>
-                        <table className="data-table">
-                            <thead><tr><th>Employee</th><th>Proposed Salary</th><th>Current Level</th><th>Actions</th></tr></thead>
-                            <tbody>
-                                {salaryUpgrades.filter(su => su.status === 'pending').map(su => {
-                                    const emp = users.find(u => u.id === su.employeeId);
-                                    const isL1 = su.currentLevel === 1 && su.level1_approver_id === currentUser.id;
-                                    const isL2 = su.currentLevel === 2 && su.level2_approver_id === currentUser.id;
-                                    const isSuper = currentUser.role === 'super_admin';
-                                    const totalLevels = su.level2_approver_id ? 2 : 1;
-                                    
-                                    if (!isL1 && !isL2 && !isSuper) return null;
-
-                                    return (
-                                        <tr key={su.id}>
-                                            <td style={{ fontWeight: 600 }}>{emp?.name} ({emp?.displayId})</td>
-                                            <td style={{ fontWeight: 700, color: 'var(--brand-primary-light)' }}>₹{Number(su.proposedSalary).toLocaleString()}</td>
-                                            <td><span className="badge badge-neutral">L{su.currentLevel}</span></td>
-                                            <td>
-                                                <div style={{ display: 'flex', gap: 6 }}>
-                                                    <button className="btn btn-success btn-sm" style={{ padding: '4px 10px', fontSize: '0.7rem' }} onClick={() => approveSalaryUpgrade(su.id, currentUser.id, 'Approved', su.currentLevel, totalLevels)}>Approve</button>
-                                                    <button className="btn btn-danger btn-sm" style={{ padding: '4px 10px', fontSize: '0.7rem' }} onClick={() => addToast('Rejection logic pending', 'info')}>Reject</button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
 
             {/* ── TAB BAR ── */}
             <div className="tabs" style={{ marginBottom: 28 }}>
@@ -268,6 +236,20 @@ function PayrollContent() {
                         {payrollHistory.length > 0 && (
                             <span className="notification-badge" style={{ position: 'static', marginLeft: 6 }}>
                                 {payrollHistory.length}
+                            </span>
+                        )}
+                    </button>
+                )}
+                {canRunPayroll && (
+                    <button
+                        className={`tab-btn ${activeTab === 'upgrades' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('upgrades')}
+                    >
+                        <TrendingUp size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                        Salary Upgrades
+                        {salaryUpgrades.filter(su => su.status === 'pending').length > 0 && (
+                            <span className="notification-badge" style={{ position: 'static', marginLeft: 6 }}>
+                                {salaryUpgrades.filter(su => su.status === 'pending').length}
                             </span>
                         )}
                     </button>
@@ -474,6 +456,67 @@ function PayrollContent() {
                                             <div style={{ fontSize: '0.78rem', marginTop: 4 }}>Download a payslip or run Process Payroll to see events here.</div>
                                         </td>
                                     </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+ 
+            {/* ── TAB CONTENT: UPGRADES ── */}
+            {activeTab === 'upgrades' && (
+                <div className="card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <div>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Salary Upgrade Approvals</h3>
+                            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                                Manage incoming salary progression and promotion requests
+                            </p>
+                        </div>
+                    </div>
+                    <div className="table-wrapper">
+                        <table className="data-table">
+                            <thead><tr><th>Employee</th><th>Proposed Salary</th><th>Current Level</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {salaryUpgrades.map(su => {
+                                    const emp = users.find(u => u.id === su.employeeId);
+                                    const isL1 = su.currentLevel === 1 && su.level1_approver_id === currentUser.id;
+                                    const isL2 = su.currentLevel === 2 && su.level2_approver_id === currentUser.id;
+                                    const isSuper = currentUser.role === 'super_admin';
+                                    const totalLevels = su.level2_approver_id ? 2 : 1;
+                                    const alreadyActed = (su.approvals || []).some(a => a.approverId === currentUser.id);
+                                    
+                                    const canAct = (isL1 || isL2 || isSuper) && !alreadyActed;
+
+                                    return (
+                                        <tr key={su.id}>
+                                            <td style={{ fontWeight: 600 }}>{emp?.name} ({emp?.displayId})</td>
+                                            <td style={{ fontWeight: 700, color: 'var(--brand-primary-light)' }}>₹{Number(su.proposedSalary).toLocaleString()}</td>
+                                            <td>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                    <span className="badge badge-neutral" style={{ width: 'fit-content' }}>L{su.currentLevel}</span>
+                                                    <span className="badge badge-neutral" style={{ background: su.status === 'approved' ? '#34d39920' : su.status === 'rejected' ? '#f8717120' : '#f59e0b20', color: su.status === 'approved' ? '#34d399' : su.status === 'rejected' ? '#f87171' : '#f59e0b', fontSize: '0.65rem' }}>{su.status}</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {su.status === 'pending' ? (
+                                                    canAct ? (
+                                                        <div style={{ display: 'flex', gap: 6 }}>
+                                                            <button className="btn btn-success btn-sm" onClick={() => approveSalaryUpgrade(su.id, currentUser.id, 'Approved', su.currentLevel, totalLevels)}>Approve</button>
+                                                            <button className="btn btn-danger btn-sm" onClick={() => addToast('Rejection logic pending', 'info')}>Reject</button>
+                                                        </div>
+                                                    ) : alreadyActed ? (
+                                                        <span style={{ fontSize: '0.72rem', color: 'var(--brand-primary-light)', fontWeight: 600 }}>✓ Action Taken</span>
+                                                    ) : (
+                                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Waiting for Approval</span>
+                                                    )
+                                                ) : <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>No Action Needed</span>}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {salaryUpgrades.length === 0 && (
+                                    <tr><td colSpan={4} style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>No salary upgrade records found.</td></tr>
                                 )}
                             </tbody>
                         </table>

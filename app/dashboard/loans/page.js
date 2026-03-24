@@ -80,26 +80,33 @@ function LoansContent() {
                                                 const isL2 = ln.currentLevel === 2 && ln.level2_approver_id === currentUser.id;
                                                 const isSuper = currentUser.role === 'super_admin';
                                                 const totalLevels = ln.level2_approver_id ? 2 : 1;
+                                                const alreadyActed = (ln.approvals || []).some(a => a.approverId === currentUser.id);
                                                 
                                                 if (isL1 || isL2 || isSuper) {
                                                     return (
                                                         <div style={{ display: 'flex', gap: 6 }}>
-                                                            <button 
-                                                                className="btn btn-sm btn-ghost" 
-                                                                style={{ color: 'var(--brand-primary-light)', padding: '4px 8px' }}
-                                                                onClick={() => approveLoan(ln.id, currentUser.id, 'Approved', ln.currentLevel, totalLevels)}
-                                                                title="Approve"
-                                                            >
-                                                                <CheckCircle size={16} />
-                                                            </button>
-                                                            <button 
-                                                                className="btn btn-sm btn-ghost" 
-                                                                style={{ color: '#ef4444', padding: '4px 8px' }}
-                                                                onClick={() => rejectLoan(ln.id, currentUser.id, 'Rejected')}
-                                                                title="Reject"
-                                                            >
-                                                                <XCircle size={16} />
-                                                            </button>
+                                                            {alreadyActed ? (
+                                                                <span style={{ fontSize: '0.72rem', color: 'var(--brand-primary-light)', fontWeight: 600 }}>✓ Action Taken</span>
+                                                            ) : (
+                                                                <>
+                                                                    <button 
+                                                                        className="btn btn-sm btn-ghost" 
+                                                                        style={{ color: 'var(--brand-primary-light)', padding: '4px 8px' }}
+                                                                        onClick={() => approveLoan(ln.id, currentUser.id, 'Approved', ln.currentLevel, totalLevels)}
+                                                                        title="Approve"
+                                                                    >
+                                                                        <CheckCircle size={16} />
+                                                                    </button>
+                                                                    <button 
+                                                                        className="btn btn-sm btn-ghost" 
+                                                                        style={{ color: '#ef4444', padding: '4px 8px' }}
+                                                                        onClick={() => rejectLoan(ln.id, currentUser.id, 'Rejected')}
+                                                                        title="Reject"
+                                                                    >
+                                                                        <XCircle size={16} />
+                                                                    </button>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     );
                                                 }

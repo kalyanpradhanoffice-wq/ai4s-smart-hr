@@ -7,11 +7,11 @@ import { can } from '@/lib/rbac';
 import { Plus, Calendar, Info, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 function LeavesContent() {
-    const { currentUser, users, leaveRequests, leaveBalances, applyLeave, approveLeave, rejectLeave, adjustLeaveBalance, customRoles } = useApp();
+    const { currentUser, users, leaveRequests, leaveBalances, applyLeave, approveLeave, rejectLeave, cancelLeave, adjustLeaveBalance, customRoles } = useApp();
     const [showForm, setShowForm] = useState(false);
     const [showAdjust, setShowAdjust] = useState(false);
     const [activeTab, setActiveTab] = useState('my');
-    const [form, setForm] = useState({ type: 'casual', from: '', to: '', reason: '' });
+    const [form, setForm] = useState({ type: 'CL', from: '', to: '', reason: '', halfDay: false });
     const [adjustForm, setAdjustForm] = useState({ userId: '', type: 'CL', amount: '', reason: '' });
     const [sandwichInfo, setSandwichInfo] = useState(0);
 
@@ -58,11 +58,11 @@ function LeavesContent() {
 
     async function handleSubmitLeave(e) {
         e.preventDefault();
-        const days = calcDays(form.from, form.to);
-        const result = await applyLeave({ ...form, days, employeeId: currentUser.id, approverId: currentUser.reportingTo || 'USR004' });
+        const daysCount = form.halfDay ? 0.5 : calcDays(form.from, form.to);
+        const result = await applyLeave({ ...form, days: daysCount, employeeId: currentUser.id, approverId: currentUser.reportingTo || 'USR004', half_day_type: form.halfDay ? 'first_half' : null });
         if (result) {
             setShowForm(false);
-            setForm({ type: 'CL', from: '', to: '', reason: '' });
+            setForm({ type: 'CL', from: '', to: '', reason: '', halfDay: false });
             setSandwichInfo(0);
         }
     }
@@ -94,7 +94,7 @@ function LeavesContent() {
             {/* Leave Balance Cards */}
             <div style={{ display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap' }}>
                 {LEAVE_TYPES.filter(lt => !lt.applicableGender || lt.applicableGender === currentUser?.gender).map(lt => {
-                    const val = myBalance ? (myBalance[lt.id] ?? myBalance[lt.id.toLowerCase()]) : (lt.maxPerYear || 0);
+                    const val = myBalance ? (myBalance[lt.id] ?? myBalance[lt.id.toLowerCase()] ?? 0) : 0;
                     return (
                         <div key={lt.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '16px 20px', minWidth: 120, backdropFilter: 'blur(20px)', flex: '1 1 100px' }}>
                             <div style={{ fontSize: '0.68rem', color: lt.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{lt.id}</div>
@@ -141,7 +141,7 @@ function LeavesContent() {
                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.displayId}</div>
                                             </td>
                                             {LEAVE_TYPES.map(lt => {
-                                                const val = bal ? (bal[lt.id] ?? bal[lt.id.toLowerCase()]) : (lt.maxPerYear || 0);
+                                                const val = bal ? (bal[lt.id] ?? bal[lt.id.toLowerCase()] ?? 0) : 0;
                                                 return (
                                                     <td key={lt.id} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
                                                         {val}
@@ -199,19 +199,30 @@ function LeavesContent() {
                                             const isL1 = lr.current_level === 1 && lr.level1_approver_id === currentUser.id;
                                             const isL2 = lr.current_level === 2 && lr.level2_approver_id === currentUser.id;
                                             const isSuper = currentUser.role === 'super_admin';
-                                            const totalLevels = lr.level2_approver_id ? 2 : 1;
+                                            const alreadyActed = (lr.approvals || []).some(a => a.approvedBy === currentUser.id);
                                             
                                             if (!isL1 && !isL2 && !isSuper) return <td />;
                                             
                                             return (
                                                 <td>
                                                     <div style={{ display: 'flex', gap: 6 }}>
-                                                        <button className="btn btn-success btn-sm" title={`Approve L${lr.current_level}`} onClick={() => approveLeave(lr.id, currentUser.id, 'Approved', lr.current_level, totalLevels)}><CheckCircle size={13} /></button>
-                                                        <button className="btn btn-danger btn-sm" title="Reject" onClick={() => rejectLeave(lr.id, currentUser.id, 'Rejected')}><XCircle size={13} /></button>
+                                                        {alreadyActed ? (
+                                                            <span style={{ fontSize: '0.72rem', color: 'var(--brand-primary-light)', fontWeight: 600 }}>✓ Action Taken</span>
+                                                        ) : (
+                                                            <>
+                                                                <button className="btn btn-success btn-sm" title={`Approve L${lr.current_level}`} onClick={() => approveLeave(lr.id, currentUser.id, 'Approved', lr.current_level, totalLevels)}><CheckCircle size={13} /></button>
+                                                                <button className="btn btn-danger btn-sm" title="Reject" onClick={() => rejectLeave(lr.id, currentUser.id, 'Rejected')}><XCircle size={13} /></button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </td>
                                             );
                                         })()}
+                                        {!canApprove && lr.employeeId === currentUser.id && (lr.status === 'pending' || new Date(lr.from) > new Date()) && (
+                                            <td>
+                                                <button className="btn btn-ghost btn-danger btn-sm" onClick={() => { if(confirm('Withdraw this leave?')) cancelLeave(lr.id) }}>Withdraw</button>
+                                            </td>
+                                        )}
                                         {canApprove && lr.status !== 'pending' && <td />}
                                     </tr>
                                 ))}
@@ -231,7 +242,7 @@ function LeavesContent() {
                                 <label className="form-label">Leave Type</label>
                                 <select className="form-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
                                     {LEAVE_TYPES.filter(lt => !lt.applicableGender || lt.applicableGender === currentUser?.gender).map(lt => {
-                                        const bal = myBalance ? (myBalance[lt.id] ?? myBalance[lt.id.toLowerCase()] ?? lt.maxPerYear ?? 0) : (lt.maxPerYear || 0);
+                                        const bal = myBalance ? (myBalance[lt.id] ?? myBalance[lt.id.toLowerCase()] ?? 0) : 0;
                                         const isWFH = lt.id === 'WFH';
                                         return (
                                             <option key={lt.id} value={lt.id} disabled={!isWFH && bal <= 0}>
@@ -244,7 +255,7 @@ function LeavesContent() {
                             {(() => {
                                 const lt = LEAVE_TYPES.find(l => l.id === form.type);
                                 const isWFH = form.type === 'WFH';
-                                const bal = !isWFH && myBalance ? (myBalance[form.type] ?? myBalance[form.type?.toLowerCase()] ?? lt?.maxPerYear ?? 0) : null;
+                                const bal = !isWFH && myBalance ? (myBalance[form.type] ?? myBalance[form.type?.toLowerCase()] ?? 0) : null;
                                 const requestedDays = calcDays(form.from, form.to);
                                 if (isWFH) return null;
                                 if (bal !== null && bal <= 0) return (
@@ -277,6 +288,18 @@ function LeavesContent() {
                                     <input type="date" className="form-input" value={form.to} onChange={e => handleDateChange('to', e.target.value)} required />
                                 </div>
                             </div>
+                            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.1)' }}>
+                                <input 
+                                    type="checkbox" 
+                                    id="halfDay" 
+                                    checked={form.halfDay} 
+                                    onChange={e => {
+                                        const checked = e.target.checked;
+                                        setForm(f => ({ ...f, halfDay: checked, to: checked ? f.from : f.to }));
+                                    }}
+                                />
+                                <label htmlFor="halfDay" style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--brand-primary-light)', cursor: 'pointer' }}>Apply for Half Day</label>
+                            </div>
                             {sandwichInfo > 0 && (
                                 <div className="alert alert-warning">
                                     <Info size={15} style={{ flexShrink: 0 }} />
@@ -285,7 +308,7 @@ function LeavesContent() {
                             )}
                             {form.from && form.to && (
                                 <div className="alert alert-info">
-                                    <Calendar size={15} style={{ flexShrink: 0 }} /> Working days requested: <strong>{calcDays(form.from, form.to)}</strong>
+                                    <Calendar size={15} style={{ flexShrink: 0 }} /> Working days requested: <strong>{form.halfDay ? '0.5' : calcDays(form.from, form.to)}</strong>
                                 </div>
                             )}
                             <div className="form-group">

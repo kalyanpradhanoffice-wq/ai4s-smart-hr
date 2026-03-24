@@ -68,10 +68,15 @@ CREATE TABLE IF NOT EXISTS public.regularizations (
     employee_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
     date DATE NOT NULL,
     correction_type TEXT NOT NULL,
+    punch_in TEXT,
+    punch_out TEXT,
     reason TEXT,
     status TEXT DEFAULT 'pending',
     requested_on TIMESTAMPTZ DEFAULT now(),
-    approver_id UUID REFERENCES public.profiles(id),
+    current_level INTEGER DEFAULT 1,
+    level1_approver_id UUID REFERENCES public.profiles(id),
+    level2_approver_id UUID REFERENCES public.profiles(id),
+    approvals JSONB DEFAULT '[]'::jsonb,
     comments TEXT
 );
 
