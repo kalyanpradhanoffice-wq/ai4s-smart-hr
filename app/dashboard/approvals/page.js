@@ -6,7 +6,7 @@ import { ClipboardList, Calendar, DollarSign, User, ChevronRight } from 'lucide-
 
 function ApprovalsContent() {
     const router = useRouter();
-    const { leaveRequests, loans, salaryUpgrades, regularizations, users, currentUser } = useApp();
+    const { leaveRequests, loans, salaryUpgrades, regularizations, users, currentUser, attendance } = useApp();
 
     const all = [
         ...leaveRequests.filter(l => l.status === 'pending').map(l => ({ ...l, type: 'Leave', cat: 'leave', href: '/dashboard/leaves' })),
@@ -60,7 +60,10 @@ function ApprovalsContent() {
                                          </span>
                                     </div>
                                     <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                                        {emp?.name} • {item.reason || item.purpose || `₹${item.proposedSalary?.toLocaleString()}`}
+                                        {emp?.name} • {item.cat === 'attendance' ? (() => {
+                                            const existing = attendance.find(a => a.userId === item.employeeId && a.date === item.date);
+                                            return `Ext: ${existing?.punchIn || '--:--'}-${existing?.punchOut || '--:--'} | Prop: ${item.punchIn || '--:--'}-${item.punchOut || '--:--'} • `;
+                                        })() : ''}{item.reason || item.purpose || `₹${item.proposedSalary?.toLocaleString()}`}
                                     </div>
                                 </div>
                                 <div style={{ textAlign: 'right', flexShrink: 0 }}>

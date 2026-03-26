@@ -219,24 +219,33 @@ function ManagerContent() {
                 {activeTab === 'reg' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         {pendingRegs.length === 0 ? <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>No pending regularizations.</div> : (
-                            pendingRegs.map(reg => {
-                                const emp = getEmp(reg.employeeId);
-                                return (
-                                    <div key={reg.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-glass)', border: '1px solid var(--border-default)', gap: 16 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
-                                            <div className="avatar avatar-sm">{emp?.avatar}</div>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{emp?.name}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Missed punch on {reg.date}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 2 }}>{reg.reason}</div>
+                                    pendingRegs.map(reg => {
+                                        const emp = getEmp(reg.employeeId);
+                                        const existing = attendance.find(a => (a.userId === reg.employeeId) && a.date === reg.date);
+                                        return (
+                                            <div key={reg.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-glass)', border: '1px solid var(--border-default)', gap: 16 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                                                    <div className="avatar avatar-sm">{emp?.avatar}</div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{emp?.name}</div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                            Correction for {reg.date} • 
+                                                            <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>
+                                                                Ext: {existing?.punchIn || '--:--'} - {existing?.punchOut || '--:--'}
+                                                            </span>
+                                                            <span style={{ color: 'var(--brand-primary-light)', fontWeight: 600, marginLeft: 8 }}>
+                                                                Prop: {reg.punchIn || '--:--'} - {reg.punchOut || '--:--'}
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 2 }}>{reg.reason}</div>
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                                                    <button className="btn btn-success btn-sm" onClick={() => approveRegularization(reg.id, currentUser.id, 'Approved')}><CheckCircle size={14} /> Approve</button>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                                            <button className="btn btn-success btn-sm" onClick={() => approveRegularization(reg.id, currentUser.id, 'Approved')}><CheckCircle size={14} /> Approve</button>
-                                        </div>
-                                    </div>
-                                );
-                            })
+                                        );
+                                    })
                         )}
                     </div>
                 )}

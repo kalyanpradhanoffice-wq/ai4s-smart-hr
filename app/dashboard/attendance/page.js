@@ -15,6 +15,7 @@ const STATUS_COLORS = {
 
 const STATUS_LABEL = {
     present: 'P', absent: 'A', leave: 'L', wfh: 'WFH', 'half-day': 'HL', 'weekly-off': 'WO',
+    late: 'P', 'early-exit': 'P'
 };
 
 const STATUS_OPTIONS = [
@@ -270,7 +271,8 @@ function AttendanceContent() {
                                 {last14.map(date => {
                                     const isFuture = new Date(date) > new Date();
                                     const status = isFuture ? 'future' : getAttendanceStatus(currentUser?.id, date);
-                                    const color = STATUS_COLORS[status] || STATUS_COLORS.absent;
+                                    const displayStatus = (status === 'late' || status === 'early-exit') ? 'present' : status;
+                                    const color = STATUS_COLORS[displayStatus] || STATUS_COLORS.absent;
                                     const isToday = date === today;
                                     const isSelected = selectedCalDate === date;
                                     return (
@@ -378,8 +380,15 @@ function AttendanceContent() {
                         <table className="data-table">
                             <thead>
                                 <tr>
-                                    <th>Employee</th><th>Date</th><th>Status</th><th>Punch In</th><th>Punch Out</th><th>Hours</th><th>Corrected</th>
-                                    {canManageAttendance && <th>Actions</th>}
+                                    <th>Employee</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Remarks</th>
+                                    <th>In Time</th>
+                                    <th>Out Time</th>
+                                    <th>Total Hours</th>
+                                    <th>Type</th>
+                                    {canManageAttendance && <th>Action</th>}
                                 </tr>
                             </thead>
                             <tbody>
@@ -403,6 +412,9 @@ function AttendanceContent() {
                                     });
                                     const status = leaveRec ? (leaveRec.type === 'WFH' ? 'wfh' : 'leave') : a.status;
 
+                                    const displayStatus = (status === 'late' || status === 'early-exit') ? 'present' : status;
+                                    const remark = status === 'late' ? 'Late' : status === 'early-exit' ? 'Early Exit' : '';
+
                                     return (
                                         <tr key={a.id}>
                                             <td>
@@ -415,7 +427,8 @@ function AttendanceContent() {
                                                 </div>
                                             </td>
                                             <td style={{ fontSize: '0.85rem' }}>{a.date}</td>
-                                            <td><span className={`status-pill status-${status}`}>{status}</span></td>
+                                            <td><span className={`status-pill status-${displayStatus}`}>{displayStatus}</span></td>
+                                            <td style={{ fontSize: '0.82rem', color: remark ? 'var(--brand-primary-light)' : 'var(--text-muted)', fontWeight: remark ? 600 : 400 }}>{remark || '—'}</td>
                                             <td style={{ fontSize: '0.85rem' }}>{a.punchIn || '—'}</td>
                                             <td style={{ fontSize: '0.85rem' }}>{a.punchOut || '—'}</td>
                                             <td style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--brand-primary-light)' }}>{hours}</td>
@@ -433,7 +446,7 @@ function AttendanceContent() {
                                     if (canViewAll) return true;
                                     if (isManager) return teamUserIds.includes(a.userId);
                                     return false;
-                                }).length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No team attendance records found.</td></tr>}
+                                }).length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No team attendance records found.</td></tr>}
                             </tbody>
                         </table>
                     </div>
@@ -448,7 +461,7 @@ function AttendanceContent() {
                     </div>
                     <div className="table-wrapper" style={{ boxShadow: 'none', border: 'none' }}>
                         <table className="data-table">
-                            <thead><tr><th>Employee</th><th>Date</th><th>Correction Type</th><th>Reason</th><th>Status</th>{canManageAttendance && <th style={{ textAlign: 'right' }}>Actions</th>}</tr></thead>
+                            <thead><tr><th>Employee</th><th>Date</th><th>Correction Type</th><th>Existing In</th><th>Existing Out</th><th>Proposed In</th><th>Proposed Out</th><th>Reason</th><th>Status</th>{canManageAttendance && <th style={{ textAlign: 'right' }}>Actions</th>}</tr></thead>
                             <tbody>
                                 {regularizations.filter(r => {
                                     if (canViewAll) return true;
@@ -456,6 +469,7 @@ function AttendanceContent() {
                                     return r.employeeId === currentUser?.id;
                                 }).map(r => {
                                     const emp = users.find(u => u.id === r.employeeId);
+                                    const existing = attendance.find(a => (a.userId === r.employeeId) && a.date === r.date);
                                     return (
                                         <tr key={r.id}>
                                             <td>
@@ -466,6 +480,10 @@ function AttendanceContent() {
                                             </td>
                                             <td style={{ fontSize: '0.85rem' }}>{r.date}</td>
                                             <td><span className="badge badge-primary" style={{ fontSize: '0.68rem', textTransform: 'capitalize' }}>{r.correctionType?.replace(/_/g, ' ') || 'Missing Punch'}</span></td>
+                                            <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{existing?.punchIn || '—'}</td>
+                                            <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{existing?.punchOut || '—'}</td>
+                                            <td style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--brand-primary-light)' }}>{r.punchIn || '—'}</td>
+                                            <td style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--brand-primary-light)' }}>{r.punchOut || '—'}</td>
                                             <td style={{ fontSize: '0.8rem', maxWidth: 200 }}>{r.reason}</td>
                                             <td>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -506,7 +524,7 @@ function AttendanceContent() {
                                     );
                                 })}
                                 {regularizations.filter(r => canViewAll ? true : isManager ? teamUserIds.includes(r.employeeId) : r.employeeId === currentUser?.id).length === 0 && (
-                                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No correction requests found.</td></tr>
+                                    <tr><td colSpan={10} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No correction requests found.</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -805,6 +823,7 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
             'Total Present',
             'Total Absent',
             'Total Leave',
+            'Remarks'
         ];
 
         const dataRows = filteredUsers.map(user => {
@@ -815,15 +834,23 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
                 else if (status === 'absent') totalA++;
                 else if (status === 'leave') totalL++;
                 if (mode === 'status') {
-                    return status && status !== 'future' ? (STATUS_LABEL[status] || status) : '';
+                    return status && status !== 'future' ? (STATUS_LABEL[status] || 'P') : '';
                 } else {
                     if (punchIn || punchOut) return `${punchIn || '--:--'} / ${punchOut || '--:--'}`;
                     if (status === 'weekly-off') return 'WO';
                     if (status === 'absent') return '-';
-                    if (status && status !== 'future') return STATUS_LABEL[status] || status;
+                    if (status && status !== 'future') return STATUS_LABEL[status] || 'P';
                     return '';
                 }
             });
+
+            const remarks = days.map(d => {
+                const { status } = getStatusForDay(user.id, d);
+                if (status === 'late') return `${d}: Late`;
+                if (status === 'early-exit') return `${d}: Early Exit`;
+                return null;
+            }).filter(Boolean).join(', ');
+
             return [
                 user.displayId || user.employee_id || '',
                 user.name || '',
@@ -832,6 +859,7 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
                 totalP,
                 totalA,
                 totalL,
+                remarks
             ];
         });
 
@@ -924,9 +952,10 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
                                     </th>
                                 );
                             })}
-                            <th style={{ position: 'sticky', top: 0, right: 104, zIndex: 4, padding: '8px 10px', textAlign: 'center', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap', background: 'rgba(16,185,129,0.18)', color: '#10b981', borderLeft: '2px solid var(--border-subtle)', minWidth: 52 }}>Total P</th>
-                            <th style={{ position: 'sticky', top: 0, right: 52, zIndex: 4, padding: '8px 10px', textAlign: 'center', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap', background: 'rgba(239,68,68,0.18)', color: '#ef4444', minWidth: 52 }}>Total A</th>
-                            <th style={{ position: 'sticky', top: 0, right: 0, zIndex: 4, padding: '8px 10px', textAlign: 'center', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap', background: 'rgba(6,182,212,0.18)', color: '#06b6d4', minWidth: 52 }}>Total L</th>
+                            <th style={{ position: 'sticky', top: 0, right: 156, zIndex: 4, padding: '8px 10px', textAlign: 'center', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap', background: 'rgba(16,185,129,0.18)', color: '#10b981', borderLeft: '2px solid var(--border-subtle)', minWidth: 52 }}>P</th>
+                            <th style={{ position: 'sticky', top: 0, right: 104, zIndex: 4, padding: '8px 10px', textAlign: 'center', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap', background: 'rgba(239,68,68,0.18)', color: '#ef4444', minWidth: 52 }}>A</th>
+                            <th style={{ position: 'sticky', top: 0, right: 52, zIndex: 4, padding: '8px 10px', textAlign: 'center', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap', background: 'rgba(6,182,212,0.18)', color: '#06b6d4', minWidth: 52 }}>L</th>
+                            <th style={{ position: 'sticky', top: 0, right: 0, zIndex: 4, padding: '8px 15px', textAlign: 'left', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase', borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap', background: 'var(--bg-card-solid)', color: 'var(--text-muted)', borderLeft: '1px solid var(--border-subtle)', minWidth: 120 }}>Remarks</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -942,7 +971,8 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
                                 if (status === 'present') totalP++;
                                 else if (status === 'absent') totalA++;
                                 else if (status === 'leave') totalL++;
-                                const color = STATUS_COLORS[status] || 'var(--text-muted)';
+                                const displayStatus = (status === 'late' || status === 'early-exit') ? 'present' : status;
+                                const color = STATUS_COLORS[displayStatus] || 'var(--text-muted)';
 
                                 if (mode === 'status') {
                                     return (
@@ -994,14 +1024,22 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
                                         <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400 }}>{user.designation || user.department}</div>
                                     </td>
                                     {dayCells}
-                                    <td style={{ position: 'sticky', right: 104, zIndex: 2, width: 52, minWidth: 52, textAlign: 'center', fontWeight: 700, fontSize: '0.78rem', color: '#10b981', background: 'var(--bg-card-solid)', boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.1)', borderBottom: '1px solid var(--border-subtle)', borderLeft: '2px solid var(--border-subtle)', padding: '8px 6px' }}>{totalP}</td>
-                                    <td style={{ position: 'sticky', right: 52, zIndex: 2, width: 52, minWidth: 52, textAlign: 'center', fontWeight: 700, fontSize: '0.78rem', color: '#ef4444', background: 'var(--bg-card-solid)', boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.1)', borderBottom: '1px solid var(--border-subtle)', padding: '8px 6px' }}>{totalA}</td>
-                                    <td style={{ position: 'sticky', right: 0, zIndex: 2, width: 52, minWidth: 52, textAlign: 'center', fontWeight: 700, fontSize: '0.78rem', color: '#06b6d4', background: 'var(--bg-card-solid)', boxShadow: 'inset 0 0 0 9999px rgba(6,182,212,0.1)', borderBottom: '1px solid var(--border-subtle)', padding: '8px 6px' }}>{totalL}</td>
+                                    <td style={{ position: 'sticky', right: 156, zIndex: 2, width: 52, minWidth: 52, textAlign: 'center', fontWeight: 700, fontSize: '0.78rem', color: '#10b981', background: 'var(--bg-card-solid)', boxShadow: 'inset 0 0 0 9999px rgba(16,185,129,0.1)', borderBottom: '1px solid var(--border-subtle)', borderLeft: '2px solid var(--border-subtle)', padding: '8px 6px' }}>{totalP}</td>
+                                    <td style={{ position: 'sticky', right: 104, zIndex: 2, width: 52, minWidth: 52, textAlign: 'center', fontWeight: 700, fontSize: '0.78rem', color: '#ef4444', background: 'var(--bg-card-solid)', boxShadow: 'inset 0 0 0 9999px rgba(239,68,68,0.1)', borderBottom: '1px solid var(--border-subtle)', padding: '8px 6px' }}>{totalA}</td>
+                                    <td style={{ position: 'sticky', right: 52, zIndex: 2, width: 52, minWidth: 52, textAlign: 'center', fontWeight: 700, fontSize: '0.78rem', color: '#06b6d4', background: 'var(--bg-card-solid)', boxShadow: 'inset 0 0 0 9999px rgba(6,182,212,0.1)', borderBottom: '1px solid var(--border-subtle)', padding: '8px 6px' }}>{totalL}</td>
+                                    <td style={{ position: 'sticky', right: 0, zIndex: 2, minWidth: 120, textAlign: 'left', fontSize: '0.68rem', color: 'var(--text-muted)', background: 'var(--bg-card-solid)', borderBottom: '1px solid var(--border-subtle)', borderLeft: '1px solid var(--border-subtle)', padding: '8px 10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {days.map(d => {
+                                            const { status } = getStatusForDay(user.id, d);
+                                            if (status === 'late') return `D${d}:L`;
+                                            if (status === 'early-exit') return `D${d}:E`;
+                                            return null;
+                                        }).filter(Boolean).join(', ') || '—'}
+                                    </td>
                                 </tr>
                             );
                         })}
                         {filteredUsers.length === 0 && (
-                            <tr><td colSpan={days.length + 5} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No employees found matching your search.</td></tr>
+                             <tr><td colSpan={days.length + 6} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No employees found matching your search.</td></tr>
                         )}
                     </tbody>
                 </table>
