@@ -8,29 +8,75 @@ function SecurityContent() {
     const { currentUser, securityConfig, updateSecurityConfig, users, auditLog } = useApp();
     const [newIP, setNewIP] = useState('');
     const [newNetwork, setNewNetwork] = useState('');
+    const [pairSSID, setPairSSID] = useState('');
+    const [pairIP, setPairIP] = useState('');
+    const [isDetecting, setIsDetecting] = useState(false);
+
+    async function detectMyIP() {
+        setIsDetecting(true);
+        try {
+            const res = await fetch('https://api.ipify.org?format=json');
+            const data = await res.json();
+            if (data.ip) setPairIP(data.ip);
+        } catch (err) {
+            console.error('Failed to detect IP:', err);
+            alert('Could not detect public IP automatically. Please enter it manually.');
+        } finally {
+            setIsDetecting(false);
+        }
+    }
+
+    // Ensure config fields are safe
+    const safeConfig = {
+        wifiRestrictionEnabled: !!securityConfig?.wifiRestrictionEnabled,
+        allowedIPs: securityConfig?.allowedIPs || [],
+        allowedNetworks: securityConfig?.allowedNetworks || [],
+        allowedAccessPoints: securityConfig?.allowedAccessPoints || [],
+        exemptRoles: securityConfig?.exemptRoles || ['super_admin', 'core_admin'],
+        popupMessage: securityConfig?.popupMessage || 'Login Restricted: Please connect to the authorized company network to access AI4S Smart HR.'
+    };
 
     function addIP() {
         if (!newIP.trim()) return;
-        updateSecurityConfig({ allowedIPs: [...securityConfig.allowedIPs, newIP.trim()] });
+        updateSecurityConfig({ allowedIPs: [...safeConfig.allowedIPs, newIP.trim()] });
         setNewIP('');
     }
 
     function removeIP(ip) {
-        updateSecurityConfig({ allowedIPs: securityConfig.allowedIPs.filter(i => i !== ip) });
+        updateSecurityConfig({ allowedIPs: safeConfig.allowedIPs.filter(i => i !== ip) });
     }
 
     function addNetwork() {
         if (!newNetwork.trim()) return;
-        updateSecurityConfig({ allowedNetworks: [...securityConfig.allowedNetworks, newNetwork.trim()] });
+        updateSecurityConfig({ allowedNetworks: [...safeConfig.allowedNetworks, newNetwork.trim()] });
         setNewNetwork('');
     }
 
     function removeNetwork(net) {
-        updateSecurityConfig({ allowedNetworks: securityConfig.allowedNetworks.filter(n => n !== net) });
+        updateSecurityConfig({ allowedNetworks: safeConfig.allowedNetworks.filter(n => n !== net) });
+    }
+
+    function addAccessPoint() {
+        if (!pairSSID.trim() || !pairIP.trim()) {
+            alert('Please provide both Wi-Fi Name (SSID) and IP Address.');
+            return;
+        }
+        const newAP = { id: `AP${Date.now()}`, ssid: pairSSID.trim(), ip: pairIP.trim() };
+        updateSecurityConfig(prev => ({
+            allowedAccessPoints: [...(prev.allowedAccessPoints || []), newAP]
+        }));
+        setPairSSID('');
+        setPairIP('');
+    }
+
+    function removeAccessPoint(id) {
+        updateSecurityConfig(prev => ({
+            allowedAccessPoints: (prev.allowedAccessPoints || []).filter(ap => ap.id !== id)
+        }));
     }
 
     function toggleGlobal() {
-        updateSecurityConfig({ wifiRestrictionEnabled: !securityConfig.wifiRestrictionEnabled });
+        updateSecurityConfig({ wifiRestrictionEnabled: !safeConfig.wifiRestrictionEnabled });
     }
 
     const securityAudit = auditLog.filter(a => ['NETWORK_POLICY_UPDATED', 'SECURITY_CONFIG_UPDATED', 'LOGIN', 'LOGOUT'].includes(a.action)).slice(0, 10);
@@ -40,7 +86,7 @@ function SecurityContent() {
             <div className="page-header">
                 <div>
                     <h1 className="page-title">Network Security Settings</h1>
-                    <p className="page-subtitle">Control Wi-Fi restriction policies and approved networks</p>
+                    <p className="page-subtitle">Control Wi-Fi restriction policies and approved access points</p>
                 </div>
             </div>
 
@@ -53,25 +99,25 @@ function SecurityContent() {
                             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>When enabled, restricted roles must be on an approved network to log in.</p>
                         </div>
                         <button onClick={toggleGlobal} style={{ background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
-                            {securityConfig.wifiRestrictionEnabled
+                            {safeConfig.wifiRestrictionEnabled
                                 ? <ToggleRight size={44} color="var(--brand-primary)" />
                                 : <ToggleLeft size={44} color="var(--text-muted)" />}
                         </button>
                     </div>
-                    <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', background: securityConfig.wifiRestrictionEnabled ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)', border: `1px solid ${securityConfig.wifiRestrictionEnabled ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {securityConfig.wifiRestrictionEnabled ? <Wifi size={18} color="#34d399" /> : <WifiOff size={18} color="#f87171" />}
+                    <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', background: safeConfig.wifiRestrictionEnabled ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)', border: `1px solid ${safeConfig.wifiRestrictionEnabled ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {safeConfig.wifiRestrictionEnabled ? <Wifi size={18} color="#34d399" /> : <WifiOff size={18} color="#f87171" />}
                         <div>
-                            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: securityConfig.wifiRestrictionEnabled ? '#34d399' : '#f87171' }}>
-                                {securityConfig.wifiRestrictionEnabled ? 'Network Restriction: ACTIVE' : 'Network Restriction: DISABLED'}
+                            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: safeConfig.wifiRestrictionEnabled ? '#34d399' : '#f87171' }}>
+                                {safeConfig.wifiRestrictionEnabled ? 'Network Restriction: ACTIVE' : 'Network Restriction: DISABLED'}
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{securityConfig.wifiRestrictionEnabled ? 'Employees must use approved networks' : 'All users can log in from any network'}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{safeConfig.wifiRestrictionEnabled ? 'Employees must use approved networks' : 'All users can log in from any network'}</div>
                         </div>
                     </div>
 
                     <div style={{ marginTop: 20 }}>
                         <div style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10 }}>Role Exemptions (Always Bypass)</div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            {securityConfig.exemptRoles.map(r => (
+                            {safeConfig.exemptRoles.map(r => (
                                 <span key={r} className="badge badge-warning">{r.replace('_', ' ')}</span>
                             ))}
                         </div>
@@ -84,49 +130,59 @@ function SecurityContent() {
                     <div style={{ marginTop: 20 }}>
                         <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>Custom Error Message</label>
                         <textarea className="form-textarea" style={{ minHeight: 60 }}
-                            value={securityConfig.popupMessage}
+                            value={safeConfig.popupMessage}
                             onChange={e => updateSecurityConfig({ popupMessage: e.target.value })} />
                     </div>
                 </div>
 
-                {/* Approved Networks */}
+                {/* Approved Access Points (SSID + IP) */}
                 <div className="card">
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 16 }}>Approved Wi-Fi Networks</h3>
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                        <input type="text" className="form-input" style={{ flex: 1 }} placeholder="Office-WiFi-Name" value={newNetwork} onChange={e => setNewNetwork(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && addNetwork()} />
-                        <button className="btn btn-primary btn-sm" onClick={addNetwork}><Plus size={14} /></button>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 200, overflowY: 'auto' }}>
-                        {securityConfig.allowedNetworks.map(net => (
-                            <div key={net} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-glass)', border: '1px solid var(--border-subtle)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <Wifi size={14} color="#34d399" />
-                                    <span style={{ fontSize: '0.875rem' }}>{net}</span>
-                                </div>
-                                <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }} onClick={() => removeNetwork(net)}><Trash2 size={13} color="#f87171" /></button>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 16 }}>Approved Access Points (WIFI + IP)</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>WIFI Name (SSID)</label>
+                                <input type="text" className="form-input" placeholder="e.g. Office-WiFi" value={pairSSID} onChange={e => setPairSSID(e.target.value)} />
                             </div>
-                        ))}
+                            <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>IP Address / Range</label>
+                                    <button 
+                                        onClick={detectMyIP}
+                                        disabled={isDetecting}
+                                        style={{ background: 'none', border: 'none', color: 'var(--brand-primary)', fontSize: '0.65rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                                    >
+                                        {isDetecting ? 'Detecting...' : 'Detect My IP'}
+                                    </button>
+                                </div>
+                                <input type="text" className="form-input" placeholder="e.g. 192.168.1.1" value={pairIP} onChange={e => setPairIP(e.target.value)} />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                                <button className="btn btn-primary" onClick={addAccessPoint} style={{ padding: '8px 12px' }}><Plus size={18} /></button>
+                            </div>
+                        </div>
                     </div>
 
-                    <div style={{ marginTop: 20 }}>
-                        <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 12 }}>Allowed IP Ranges</h4>
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                            <input type="text" className="form-input" style={{ flex: 1 }} placeholder="192.168.1.0/24" value={newIP} onChange={e => setNewIP(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && addIP()} />
-                            <button className="btn btn-primary btn-sm" onClick={addIP}><Plus size={14} /></button>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 160, overflowY: 'auto' }}>
-                            {securityConfig.allowedIPs.map(ip => (
-                                <div key={ip} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-glass)', border: '1px solid var(--border-subtle)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <Server size={13} color="var(--brand-info)" />
-                                        <span style={{ fontSize: '0.82rem', fontFamily: 'monospace' }}>{ip}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 300, overflowY: 'auto', paddingRight: 4 }}>
+                        {safeConfig.allowedAccessPoints.map(ap => (
+                            <div key={ap.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-glass)', border: '1px solid var(--border-subtle)', transition: 'all 0.2s' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Wifi size={16} color="var(--brand-primary)" />
                                     </div>
-                                    <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px' }} onClick={() => removeIP(ip)}><Trash2 size={13} color="#f87171" /></button>
+                                    <div>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{ap.ssid}</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{ap.ip}</div>
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
+                                <button className="btn btn-ghost btn-sm" onClick={() => removeAccessPoint(ap.id)}><Trash2 size={13} color="#f87171" /></button>
+                            </div>
+                        ))}
+                        {safeConfig.allowedAccessPoints.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)', fontSize: '0.85rem', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+                                No approved access points configured.
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

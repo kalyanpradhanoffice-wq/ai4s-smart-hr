@@ -8,7 +8,7 @@ import ClientProviders from '../ClientProviders';
 
 function LoginPage() {
     const router = useRouter();
-    const { login, signUp, currentUser, securityConfig, PRODUCTION_MODE } = useApp();
+    const { login, logout, signUp, currentUser, securityConfig, isSecurityConfigLoaded, PRODUCTION_MODE } = useApp();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -19,15 +19,28 @@ function LoginPage() {
     const [designation, setDesignation] = useState('');
     const [wifiModal, setWifiModal] = useState(false);
     const [networkStatus, setNetworkStatus] = useState('checking');
+    const [currentIP, setCurrentIP] = useState(null);
 
     useEffect(() => {
         if (currentUser) router.replace(getRoute(currentUser.role));
     }, [currentUser, router]);
 
-    // Simulate network check using connection type and IP detection
+    // Detect current public IP on load (purely informative)
     useEffect(() => {
-        const timer = setTimeout(() => setNetworkStatus('restricted'), 800);
-        return () => clearTimeout(timer);
+        async function detectIP() {
+            try {
+                const res = await fetch('https://api.ipify.org?format=json');
+                const data = await res.json();
+                if (data.ip) {
+                    setCurrentIP(data.ip);
+                    setNetworkStatus('detected');
+                }
+            } catch (err) {
+                console.error('IP detection failed:', err);
+                setNetworkStatus('unverified');
+            }
+        }
+        detectIP();
     }, []);
 
     function getRoute(role) {
@@ -50,7 +63,7 @@ function LoginPage() {
             const result = await signUp(email, password, {
                 name,
                 designation,
-                role: 'super_admin', // First user is super admin for convenience
+                role: 'super_admin',
                 employee_id: `EMP${Date.now().toString().slice(-4)}`
             });
             if (!result.success) {
@@ -70,13 +83,37 @@ function LoginPage() {
             setLoading(false);
             return;
         }
-        router.replace(result.redirectTo);
-    }
 
-    function checkSimulatedNetwork() {
-        // In a real implementation, this checks the server-reported IP
-        // For demo: Super Admin/Core Admin always allowed; others shown the restriction UI
-        return false; // Simulates "not on office network"
+        // --- ON-DEMAND NETWORK SECURITY ENFORCEMENT ---
+        // We only check if restriction is enabled in the database.
+        // Admins (super_admin/core_admin) are exempted inside isNetworkRestricted().
+        if (securityConfig?.wifiRestrictionEnabled) {
+            let ipToVerify = currentIP;
+
+            // If IP isn't detected yet, try a quick last-minute fetch
+            if (!ipToVerify) {
+                try {
+                    const res = await fetch('https://api.ipify.org?format=json');
+                    const data = await res.json();
+                    ipToVerify = data.ip;
+                    setCurrentIP(ipToVerify);
+                } catch (e) {
+                    console.error('On-demand IP fetch failed:', e);
+                }
+            }
+
+            console.log(`[LOGIN CHECK] User: ${result.user.email}, Role: ${result.user.role}, IP: ${ipToVerify || 'UNKNOWN'}`);
+
+            if (isNetworkRestricted(result.user, securityConfig, { ip: ipToVerify })) {
+                console.error('NETWORK ACCESS RESTRICTED: Redirecting to modal and logging out.');
+                await logout(); // Ensure no session persists in browser
+                setWifiModal(true);
+                setLoading(false);
+                return;
+            }
+        }
+
+        router.replace(result.redirectTo);
     }
 
     function handleWifiModalClose() {
@@ -132,12 +169,13 @@ function LoginPage() {
                             </div>
                         </div>
 
-                        {/* Network Status */}
                         <div className="login-network-status">
                             {networkStatus === 'checking' ? (
-                                <div className="network-badge checking"><div className="spinner" style={{ width: 12, height: 12 }} /> Checking network...</div>
+                                <div className="network-badge checking"><div className="spinner" style={{ width: 12, height: 12 }} /> Identifying network...</div>
+                            ) : networkStatus === 'detected' ? (
+                                <div className="network-badge allowed"><Wifi size={13} /> Current IP: {currentIP}</div>
                             ) : (
-                                <div className="network-badge restricted"><WifiOff size={13} /> Network check active</div>
+                                <div className="network-badge restricted"><WifiOff size={13} /> Network unverified</div>
                             )}
                         </div>
 
@@ -189,12 +227,19 @@ function LoginPage() {
                                 <a href="/forgot-password" style={{ fontSize: '0.8rem', color: 'var(--brand-primary-light)' }}>Forgot password?</a>
                             </div>
 
-                            <button type="submit" className="btn btn-primary w-full" disabled={loading} style={{ justifyContent: 'center', gap: 8 }}>
-                                {loading ? <><div className="spinner" style={{ width: 16, height: 16 }} /> Processing...</> : <>{isRegister ? 'Register Now' : 'Sign In'} <ChevronRight size={16} /></>}
+                            <button 
+                                type="submit" 
+                                className="btn btn-primary w-full" 
+                                disabled={loading} 
+                                style={{ justifyContent: 'center', gap: 8 }}
+                             >
+                                {loading ? (
+                                    <><div className="spinner" style={{ width: 16, height: 16 }} /> Processing...</>
+                                ) : (
+                                    <>{isRegister ? 'Register Now' : 'Sign In'} <ChevronRight size={16} /></>
+                                )}
                             </button>
                         </form>
-
-                        {/* Registration link removed for security */}
 
                         <p style={{ textAlign: 'center', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 16 }}>
                             <Shield size={11} style={{ display: 'inline', marginRight: 4 }} />
@@ -221,8 +266,16 @@ function LoginPage() {
                         <div className="alert alert-warning" style={{ textAlign: 'left', marginBottom: 20 }}>
                             <Wifi size={15} style={{ flexShrink: 0 }} />
                             <div>
-                                <div style={{ fontWeight: 600, marginBottom: 4 }}>Authorized Networks:</div>
-                                <div style={{ fontSize: '0.8rem' }}>{securityConfig.allowedNetworks.join(' • ')}</div>
+                                <div style={{ fontWeight: 600, marginBottom: 4 }}>Authorized Access Points:</div>
+                                <div style={{ fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    {securityConfig.allowedAccessPoints?.length > 0 ? (
+                                        securityConfig.allowedAccessPoints.map(ap => (
+                                            <div key={ap.id}>• {ap.ssid} ({ap.ip})</div>
+                                        ))
+                                    ) : (
+                                        <div>{securityConfig.allowedNetworks?.join(' • ') || 'No networks configured'}</div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: 10 }}>
