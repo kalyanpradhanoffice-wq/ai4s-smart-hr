@@ -77,40 +77,15 @@ function LoginPage() {
             return;
         }
 
-        const result = await login(email, password);
+        const result = await login(email, password, currentIP);
         if (!result.success) {
-            setError(result.error);
+            if (result.isRestricted) {
+                setWifiModal(true);
+            } else {
+                setError(result.error);
+            }
             setLoading(false);
             return;
-        }
-
-        // --- ON-DEMAND NETWORK SECURITY ENFORCEMENT ---
-        // We only check if restriction is enabled in the database.
-        // Admins (super_admin/core_admin) are exempted inside isNetworkRestricted().
-        if (securityConfig?.wifiRestrictionEnabled) {
-            let ipToVerify = currentIP;
-
-            // If IP isn't detected yet, try a quick last-minute fetch
-            if (!ipToVerify) {
-                try {
-                    const res = await fetch('https://api.ipify.org?format=json');
-                    const data = await res.json();
-                    ipToVerify = data.ip;
-                    setCurrentIP(ipToVerify);
-                } catch (e) {
-                    console.error('On-demand IP fetch failed:', e);
-                }
-            }
-
-            console.log(`[LOGIN CHECK] User: ${result.user.email}, Role: ${result.user.role}, IP: ${ipToVerify || 'UNKNOWN'}`);
-
-            if (isNetworkRestricted(result.user, securityConfig, { ip: ipToVerify })) {
-                console.error('NETWORK ACCESS RESTRICTED: Redirecting to modal and logging out.');
-                await logout(); // Ensure no session persists in browser
-                setWifiModal(true);
-                setLoading(false);
-                return;
-            }
         }
 
         router.replace(result.redirectTo);
