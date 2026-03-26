@@ -95,7 +95,9 @@ function AdminContent() {
                                     return (
                                         <tr key={a.id}>
                                             <td><span className="badge badge-primary" style={{ fontSize: '0.68rem' }}>{a.workflow}</span></td>
-                                            <td style={{ fontWeight: 500, color: 'var(--text-primary)', fontSize: '0.85rem' }}>{emp?.name || 'Unknown'}</td>
+                                            <td style={{ fontWeight: 500, color: 'var(--text-primary)', fontSize: '0.85rem' }}>
+                                                {emp?.name || 'Unknown'} <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>({emp?.displayId})</span>
+                                            </td>
                                             <td style={{ fontSize: '0.8rem' }}>{a.reason || a.purpose || `₹${a.proposedSalary?.toLocaleString()}`}</td>
                                             <td><span className="status-pill status-pending">Pending</span></td>
                                             <td><span className="badge badge-neutral">L{a.currentLevel}</span></td>

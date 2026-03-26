@@ -28,7 +28,8 @@ export default function TopHeader({ title, customRoles }) {
     const searchResults = searchQuery.trim() ? users.filter(u => 
         u.status === 'active' && (
             (u.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (u.employeeId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (u.displayId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (u.employee_id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             (u.department || '').toLowerCase().includes(searchQuery.toLowerCase())
         )
@@ -135,7 +136,7 @@ export default function TopHeader({ title, customRoles }) {
                                 </div>
                                 <div style={{ textAlign: 'center', marginBottom: 20 }}>
                                     <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: 4 }}>{selectedEmployee.name}</h3>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--brand-primary-light)', fontFamily: 'monospace', background: 'rgba(99,102,241,0.1)', padding: '2px 8px', borderRadius: '12px', display: 'inline-block' }}>{selectedEmployee.employeeId}</div>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--brand-primary-light)', fontFamily: 'monospace', background: 'rgba(99,102,241,0.1)', padding: '2px 8px', borderRadius: '12px', display: 'inline-block' }}>{selectedEmployee.displayId}</div>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.85rem' }}>

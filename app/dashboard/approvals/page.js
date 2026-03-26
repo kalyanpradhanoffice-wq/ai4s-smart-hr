@@ -60,7 +60,7 @@ function ApprovalsContent() {
                                          </span>
                                     </div>
                                     <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                                        {emp?.name} • {item.cat === 'attendance' ? (() => {
+                                        {emp?.name} <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>({emp?.displayId})</span> • {item.cat === 'attendance' ? (() => {
                                             const existing = attendance.find(a => a.userId === item.employeeId && a.date === item.date);
                                             return `Ext: ${existing?.punchIn || '--:--'}-${existing?.punchOut || '--:--'} | Prop: ${item.punchIn || '--:--'}-${item.punchOut || '--:--'} • `;
                                         })() : ''}{item.reason || item.purpose || `₹${item.proposedSalary?.toLocaleString()}`}
