@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/lib/AppContext';
 import { isNetworkRestricted } from '@/lib/rbac';
+import { supabase } from '@/lib/supabase';
 import { Eye, EyeOff, Wifi, WifiOff, Shield, AlertCircle, X, Lock, Mail, ChevronRight } from 'lucide-react';
 import ClientProviders from '../ClientProviders';
 
@@ -20,24 +21,41 @@ function LoginPage() {
     const [wifiModal, setWifiModal] = useState(false);
     const [networkStatus, setNetworkStatus] = useState('checking');
     const [currentIP, setCurrentIP] = useState(null);
+    const [isNetworkAllowed, setIsNetworkAllowed] = useState(null);
 
     useEffect(() => {
         if (currentUser) router.replace(getRoute(currentUser.role));
     }, [currentUser, router]);
 
-    // Detect current public IP on load (purely informative)
+    // Detect current public IP on load and verify against allowed list
     useEffect(() => {
         async function detectIP() {
             try {
+                // Fetch actual security config directly, as context might not be loaded if logged out
+                const { data: secData } = await supabase.from('security_config').select('*').eq('id', 'system_config').single();
+                const actualConfig = secData?.config;
+
                 const res = await fetch('https://api.ipify.org?format=json');
                 const data = await res.json();
                 if (data.ip) {
                     setCurrentIP(data.ip);
                     setNetworkStatus('detected');
+                    
+                    // Client-side visual verification (optional, purely for UI feedback)
+                    if (actualConfig?.wifiRestrictionEnabled && actualConfig?.allowedAccessPoints) {
+                        const verified = actualConfig.allowedAccessPoints.some(ap => {
+                           if (!ap.ip) return false;
+                           return data.ip.startsWith(ap.ip);
+                        });
+                        setIsNetworkAllowed(verified);
+                    } else {
+                        setIsNetworkAllowed(true); // If restriction is disabled, all networks are 'allowed'
+                    }
                 }
             } catch (err) {
                 console.error('IP detection failed:', err);
                 setNetworkStatus('unverified');
+                setIsNetworkAllowed(false);
             }
         }
         detectIP();
@@ -80,7 +98,7 @@ function LoginPage() {
         const result = await login(email, password, currentIP);
         if (!result.success) {
             if (result.isRestricted) {
-                setWifiModal(true);
+                setError(`Unauthorized Network: Please connect to the designated Office Wi-Fi. (Detected IP: ${currentIP || 'Unknown'})`);
             } else {
                 setError(result.error);
             }
@@ -89,10 +107,6 @@ function LoginPage() {
         }
 
         router.replace(result.redirectTo);
-    }
-
-    function handleWifiModalClose() {
-        setWifiModal(false);
     }
 
     return (
@@ -148,7 +162,10 @@ function LoginPage() {
                             {networkStatus === 'checking' ? (
                                 <div className="network-badge checking"><div className="spinner" style={{ width: 12, height: 12 }} /> Identifying network...</div>
                             ) : networkStatus === 'detected' ? (
-                                <div className="network-badge allowed"><Wifi size={13} /> Current IP: {currentIP}</div>
+                                <div className={`network-badge ${isNetworkAllowed ? 'allowed' : 'restricted'}`}>
+                                    {isNetworkAllowed ? <Wifi size={13} /> : <WifiOff size={13} />} 
+                                    {isNetworkAllowed ? 'Verified Office Network' : 'Guest / Unknown Network'}
+                                </div>
                             ) : (
                                 <div className="network-badge restricted"><WifiOff size={13} /> Network unverified</div>
                             )}
@@ -224,45 +241,7 @@ function LoginPage() {
                 </div>
             </div>
 
-            {/* Wi-Fi Restriction Modal */}
-            {wifiModal && (
-                <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setWifiModal(false)}>
-                    <div className="modal-box animate-scale-in" style={{ textAlign: 'center', maxWidth: 460 }}>
-                        <button onClick={handleWifiModalClose} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                            <X size={20} />
-                        </button>
-                        <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-                            <WifiOff size={32} color="#ef4444" />
-                        </div>
-                        <h3 style={{ color: 'var(--text-primary)', marginBottom: 12, fontFamily: 'var(--font-display)' }}>Network Access Restricted</h3>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: 24 }}>
-                            {securityConfig.popupMessage}
-                        </p>
-                        <div className="alert alert-warning" style={{ textAlign: 'left', marginBottom: 20 }}>
-                            <Wifi size={15} style={{ flexShrink: 0 }} />
-                            <div>
-                                <div style={{ fontWeight: 600, marginBottom: 4 }}>Authorized Access Points:</div>
-                                <div style={{ fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    {securityConfig.allowedAccessPoints?.length > 0 ? (
-                                        securityConfig.allowedAccessPoints.map(ap => (
-                                            <div key={ap.id}>• {ap.ssid} ({ap.ip})</div>
-                                        ))
-                                    ) : (
-                                        <div>{securityConfig.allowedNetworks?.join(' • ') || 'No networks configured'}</div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 10 }}>
-                            <button className="btn btn-ghost w-full" onClick={handleWifiModalClose}>Go Back</button>
-                            <button className="btn btn-primary w-full" onClick={handleWifiModalClose} style={{ justifyContent: 'center' }}>
-                                Contact IT Support
-                            </button>
-                        </div>
-                        <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 12 }}>Super Admins can access from any network.</p>
-                    </div>
-                </div>
-            )}
+            {/* Modal removed as per user request */}
 
             <style>{`
         .login-root { min-height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; padding: 20px; }
