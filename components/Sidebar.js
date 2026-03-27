@@ -28,7 +28,7 @@ const NAV_SECTIONS = [
         title: 'Workforce',
         items: [
             { label: 'Employees', icon: Users, href: '/dashboard/employees', permission: PERMISSIONS.VIEW_ALL_EMPLOYEES },
-            { label: 'Interviews', icon: UserCheck, href: '/dashboard/interviews', permissions: [PERMISSIONS.MANAGE_INTERVIEW_PIPELINE, PERMISSIONS.VIEW_INTERVIEW_SCHEDULE] },
+            { label: 'Interviews', icon: UserCheck, href: '/dashboard/interviews', permissions: [PERMISSIONS.MANAGE_INTERVIEW_PIPELINE, PERMISSIONS.VIEW_INTERVIEW_SCHEDULE, PERMISSIONS.SUBMIT_INTERVIEW_ASSESSMENT] },
         ],
     },
     {

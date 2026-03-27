@@ -3,12 +3,13 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useState } from 'react';
 import { UserCheck, Plus, Calendar, Clock, Video, MapPin, Star, ThumbsUp, ThumbsDown, ChevronDown, Users } from 'lucide-react';
-import { getInitials } from '@/lib/constants';
+import { getInitials, PERMISSIONS } from '@/lib/constants';
+import { can } from '@/lib/rbac';
 
 const POSITIONS = ['Software Engineer', 'Senior Software Engineer', 'Product Manager', 'HR Executive', 'Sales Executive', 'Finance Analyst', 'DevOps Engineer', 'UI/UX Designer'];
 
 function InterviewContent() {
-    const { currentUser, users, interviews, createInterview, updateInterviewAssessment } = useApp();
+    const { currentUser, customRoles, users, interviews, createInterview, updateInterviewAssessment } = useApp();
     const [activeTab, setActiveTab] = useState('list');
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [showAssessModal, setShowAssessModal] = useState(null); // holds interview object
@@ -37,8 +38,16 @@ function InterviewContent() {
         setAssessment({ rating: 3, strengths: '', weaknesses: '', recommendation: 'hold' });
     }
 
-    const scheduled = interviews.filter(i => i.status === 'scheduled');
-    const completed = interviews.filter(i => i.status === 'completed');
+    const canSchedule = can(currentUser, PERMISSIONS.SCHEDULE_INTERVIEW, customRoles || []);
+    const canViewAll = can(currentUser, PERMISSIONS.VIEW_INTERVIEW_SCHEDULE, customRoles || []) || can(currentUser, PERMISSIONS.VIEW_ALL_ASSESSMENTS, customRoles || []);
+
+    let visibleInterviews = interviews;
+    if (!canViewAll) {
+        visibleInterviews = interviews.filter(i => i.interviewerId === currentUser?.id);
+    }
+
+    const scheduled = visibleInterviews.filter(i => i.status === 'scheduled');
+    const completed = visibleInterviews.filter(i => i.status === 'completed');
 
     const recBadge = {
         hire: { color: '#10b981', label: 'Hire' },
@@ -53,9 +62,11 @@ function InterviewContent() {
                     <h1 className="page-title">Interview Scheduling</h1>
                     <p className="page-subtitle">Schedule and manage candidate interviews</p>
                 </div>
-                <button className="btn btn-primary" onClick={() => setShowScheduleModal(true)}>
-                    <Plus size={16} /> Schedule Interview
-                </button>
+                {canSchedule && (
+                    <button className="btn btn-primary" onClick={() => setShowScheduleModal(true)}>
+                        <Plus size={16} /> Schedule Interview
+                    </button>
+                )}
             </div>
 
             {/* Stats */}
