@@ -1,4 +1,5 @@
 import './globals.css';
+import ClientProviders from './ClientProviders';
 
 export const metadata = {
     title: 'AI4S Smart HR — Enterprise HRMS Platform',
@@ -14,7 +15,9 @@ export default function RootLayout({ children }) {
                 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
             </head>
             <body suppressHydrationWarning>
-                {children}
+                <ClientProviders>
+                    {children}
+                </ClientProviders>
             </body>
         </html>
     );

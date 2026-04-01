@@ -7,7 +7,11 @@ import { can } from '@/lib/rbac';
 import { Plus, Calendar, Info, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 function LeavesContent() {
-    const { currentUser, users, leaveRequests, leaveBalances, applyLeave, approveLeave, rejectLeave, cancelLeave, adjustLeaveBalance, customRoles } = useApp();
+    const { 
+        currentUser, users, leaveRequests, leaveBalances, 
+        applyLeave, approveLeave, rejectLeave, cancelLeave, adjustLeaveBalance, 
+        customRoles, systemSettings, countWorkingDays, isWorkingDay 
+    } = useApp();
     const [showForm, setShowForm] = useState(false);
     const [showAdjust, setShowAdjust] = useState(false);
     const [activeTab, setActiveTab] = useState('my');
@@ -38,20 +42,14 @@ function LeavesContent() {
 
     function calcDays(from, to) {
         if (!from || !to) return 0;
-        const d1 = new Date(from), d2 = new Date(to);
-        if (d2 < d1) return 0;
-        
-        // Use calendar days inclusive
-        const diffTime = Math.abs(d2 - d1);
-        const days = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        return days;
+        return countWorkingDays(from, to);
     }
 
     function handleDateChange(field, val) {
         const updated = { ...form, [field]: val };
         setForm(updated);
         if (updated.from && updated.to && new Date(updated.from) <= new Date(updated.to)) {
-            const extra = applySandwichRule(updated.from, updated.to);
+            const extra = applySandwichRule(updated.from, updated.to, systemSettings?.weekend_days);
             setSandwichInfo(extra);
         }
     }
@@ -264,6 +262,12 @@ function LeavesContent() {
                                         <span><strong>No balance left</strong> — You have <strong>0</strong> {form.type} days remaining. Please choose a different leave type or contact HR.</span>
                                     </div>
                                 );
+                                if (form.from && !isWorkingDay(form.from)) return (
+                                    <div className="alert" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', borderRadius: 'var(--radius-md)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}>
+                                        <span style={{ fontSize: '1rem' }}>⚠️</span>
+                                        <span><strong>Selection Error:</strong> {form.from} is a <strong>Holiday or Weekend</strong>. Leave cannot be applied on non-working days.</span>
+                                    </div>
+                                );
                                 if (bal !== null && requestedDays > bal) return (
                                     <div className="alert alert-warning">
                                         <Info size={15} style={{ flexShrink: 0 }} />
@@ -322,9 +326,11 @@ function LeavesContent() {
                                     className="btn btn-primary"
                                     disabled={(() => {
                                         const isWFH = form.type === 'WFH';
-                                        if (isWFH) return false;
                                         const bal = myBalance ? (myBalance[form.type] ?? myBalance[form.type?.toLowerCase()] ?? 0) : 0;
-                                        return bal <= 0;
+                                        const workingDays = form.halfDay ? 0.5 : calcDays(form.from, form.to);
+                                        if (workingDays === 0) return true;
+                                        if (isWFH) return false;
+                                        return bal < workingDays;
                                     })()}
                                 >
                                     Submit Request

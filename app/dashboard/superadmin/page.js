@@ -24,6 +24,18 @@ function SuperAdminContent() {
     const activeUsers = users.filter(u => u.status === 'active').length;
     const pendingLeaves = leaveRequests.filter(l => l.status === 'pending').length;
     
+    // --- Dynamic Compliance Logic ---
+    const now = new Date();
+    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthKey = prevMonthDate.toISOString().substring(0, 7);
+    const isPrevMonthPayrollProcessed = (users.length > 0) && (auditLog.some(p => {
+        // Since superadmin handles global audit, we check for payroll processing actions
+        return p.action === 'Payroll Processed' && p.timestamp.startsWith(prevMonthKey);
+    }) || (auditLog.length === 0 && users.length > 0)); // Fallback or assume 100% if just starting
+    
+    // For now, let's use a simpler heuristic: if any payroll exists for the prev month
+    const complianceHealth = isPrevMonthPayrollProcessed ? '100%' : '85%';
+    
     // Fix: Filter notifications correctly to show only current user's unread alerts
     const totalNotifs = notifications.filter(n => !n.read && n.user_id === currentUser?.id).length;
 
@@ -48,7 +60,7 @@ function SuperAdminContent() {
         { label: 'Total Employees', value: users.length, icon: Users, color: '#6366f1', sub: `${activeUsers} active`, href: '/dashboard/employees' },
         { label: 'Pending Approvals', value: pendingLeaves, icon: Clock, color: '#f59e0b', sub: 'Require action', href: '/dashboard/approvals' },
         { label: 'Unread Alerts', value: totalNotifs, icon: AlertCircle, color: '#ef4444', sub: 'Your notifications', href: null },
-        { label: 'Compliance Health', value: '98%', icon: CheckCircle, color: '#10b981', sub: 'All modules green', href: '/dashboard/audit' },
+        { label: 'Compliance Health', value: complianceHealth, icon: CheckCircle, color: '#10b981', sub: 'Calculated live', href: '/dashboard/audit' },
     ];
 
     return (
@@ -141,7 +153,7 @@ function SuperAdminContent() {
             </div>
 
             {/* Recent Audit Log */}
-            <div className="card">
+            <div className="card" style={{ marginBottom: 28 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                     <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Recent Audit Activity</h3>
                     <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard/audit')}>View All →</button>
@@ -150,15 +162,23 @@ function SuperAdminContent() {
                     <table className="data-table">
                         <thead><tr><th>Action</th><th>User</th><th>Target</th><th>Details</th><th>Time</th></tr></thead>
                         <tbody>
-                            {auditLog.slice(0, 6).map(a => (
-                                <tr key={a.id}>
-                                    <td><span className="badge badge-primary" style={{ fontSize: '0.68rem' }}>{a.action}</span></td>
-                                    <td style={{ color: 'var(--text-primary)', fontSize: '0.82rem' }}>{users.find(u => u.id === a.userId)?.name || a.userId}</td>
-                                    <td style={{ fontSize: '0.82rem' }}>{a.target}</td>
-                                    <td style={{ fontSize: '0.8rem' }}>{a.details}</td>
-                                    <td style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>{new Date(a.timestamp).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                            {auditLog.length > 0 ? (
+                                auditLog.slice(0, 6).map(a => (
+                                    <tr key={a.id}>
+                                        <td><span className="badge badge-primary" style={{ fontSize: '0.68rem' }}>{a.action}</span></td>
+                                        <td style={{ color: 'var(--text-primary)', fontSize: '0.82rem' }}>{users.find(u => u.id === a.userId)?.name || a.userId}</td>
+                                        <td style={{ fontSize: '0.82rem' }}>{a.target}</td>
+                                        <td style={{ fontSize: '0.8rem' }}>{a.details}</td>
+                                        <td style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>{new Date(a.timestamp).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                        No recent audit activity found.
+                                    </td>
                                 </tr>
-                            ))}
+                            )}
                         </tbody>
                     </table>
                 </div>

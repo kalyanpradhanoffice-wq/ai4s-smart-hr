@@ -42,5 +42,5 @@ function DashboardShell({ children, title }) {
 }
 
 export default function DashboardLayout({ children, title = 'Dashboard' }) {
-    return <ClientProviders><DashboardShell title={title}>{children}</DashboardShell></ClientProviders>;
+    return <DashboardShell title={title}>{children}</DashboardShell>;
 }

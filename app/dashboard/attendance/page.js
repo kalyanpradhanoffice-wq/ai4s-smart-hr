@@ -10,12 +10,13 @@ import * as XLSX from 'xlsx';
 
 const STATUS_COLORS = {
     present: '#10b981', absent: '#ef4444', leave: '#06b6d4',
-    wfh: '#8b5cf6', 'half-day': '#f59e0b', 'weekly-off': '#94a3b8',
+    wfh: '#8b5cf6', 'half-day': '#f59e0b', 'weekly-off': '#6366f1',
+    wo: '#6366f1', holiday: '#94a3b8'
 };
 
 const STATUS_LABEL = {
     present: 'P', absent: 'A', leave: 'L', wfh: 'WFH', 'half-day': 'HL', 'weekly-off': 'WO',
-    late: 'P', 'early-exit': 'P'
+    wo: 'WO', holiday: 'HOL', late: 'P', 'early-exit': 'P'
 };
 
 const STATUS_OPTIONS = [
@@ -44,7 +45,7 @@ function AttendanceContent() {
         currentUser, users, attendance, regularizations,
         requestRegularization, approveRegularization, rejectRegularization,
         markAttendance, hrCorrectAttendance, leaveBalances, leaveRequests,
-        getAttendanceStatus
+        getAttendanceStatus, systemSettings, companyHolidays
     } = useApp();
 
     const searchParams = useSearchParams();
@@ -65,6 +66,7 @@ function AttendanceContent() {
     const [selectedCalDate, setSelectedCalDate] = useState(null);
     const [showHRModal, setShowHRModal] = useState(false);
     const [hrForm, setHRForm] = useState({ userId: '', date: '', status: 'present', punchIn: '', punchOut: '', leaveType: 'CL', halfDayType: '', location: 'office' });
+    const [teamDate, setTeamDate] = useState(new Date().toISOString().split('T')[0]);
 
     const isSuperAdmin = currentUser?.role === 'super_admin';
     const isHRAdmin = currentUser?.role === 'hr_admin';
@@ -95,9 +97,11 @@ function AttendanceContent() {
     const leaveDays = thisMonthDays.filter(date => getAttendanceStatus(currentUser?.id, date) === 'leave').length;
     const wfhDays = thisMonthDays.filter(date => getAttendanceStatus(currentUser?.id, date) === 'wfh').length;
     const holidayDays = thisMonthDays.filter(date => getAttendanceStatus(currentUser?.id, date) === 'holiday').length;
+    const woDays = thisMonthDays.filter(date => getAttendanceStatus(currentUser?.id, date) === 'wo').length;
     const halfDayDays = thisMonth.filter(a => a.status === 'half-day').length;
-    const workingMonthDays = thisMonthDays.filter(date => new Date(date).getDay() !== 0).length;
-    const absentDays = Math.max(0, workingMonthDays - presentDays - leaveDays - wfhDays - halfDayDays - holidayDays);
+
+    // Absent = Total Days so far - (Present + Leave + WFH + Holiday + WO + HalfDays)
+    const absentDays = Math.max(0, thisMonthDays.length - presentDays - leaveDays - wfhDays - holidayDays - woDays - halfDayDays);
     const myLeaveBalance = leaveBalances?.find(b => b.userId === currentUser?.id);
 
     const last14 = Array.from({ length: 14 }, (_, i) => {
@@ -218,7 +222,7 @@ function AttendanceContent() {
                             { label: 'Absent (Month)', value: absentDays, color: '#ef4444' },
                             { label: 'Leave (Month)', value: leaveDays, color: '#06b6d4' },
                             { label: 'WFH (Month)', value: wfhDays, color: '#8b5cf6' },
-                            { label: 'Half Day (Month)', value: halfDayDays, color: '#f59e0b' },
+                            { label: 'Weekly Off (Month)', value: woDays, color: '#6366f1' },
                             { label: 'Holiday (Month)', value: holidayDays, color: '#94a3b8' },
                         ].map(s => (
                             <div key={s.label} className="stat-card" style={{ padding: '16px 12px' }}>
@@ -370,11 +374,24 @@ function AttendanceContent() {
             {/* ── TEAM ATTENDANCE TAB ── */}
             {activeTab === 'team' && (isManager || canViewAll) && (
                 <div className="card" style={{ padding: 0 }}>
-                    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
-                        <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Team Attendance</h3>
-                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                            {isManager && !canViewAll ? `Showing attendance for your direct reports (${teamUserIds.length} employees)` : 'Showing attendance for all employees'}
-                        </p>
+                    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Team Attendance</h3>
+                            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                                {isManager && !canViewAll ? `Showing attendance for your direct reports (${teamUserIds.length} employees)` : 'Showing attendance for all employees'}
+                            </p>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <input 
+                                    type="date" 
+                                    className="form-input" 
+                                    style={{ width: 150, padding: '7px 12px', fontSize: '0.82rem' }}
+                                    value={teamDate}
+                                    onChange={e => setTeamDate(e.target.value)}
+                                />
+                            </div>
+                        </div>
                     </div>
                     <div className="table-wrapper" style={{ boxShadow: 'none', border: 'none' }}>
                         <table className="data-table">
@@ -392,61 +409,68 @@ function AttendanceContent() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {attendance.filter(a => {
-                                    if (a.userId === currentUser?.id) return false;
+                                {users.filter(u => {
+                                    if (u.id === currentUser?.id) return false;
                                     if (canViewAll) return true;
-                                    if (isManager) return teamUserIds.includes(a.userId);
+                                    if (isManager) return teamUserIds.includes(u.id);
                                     return false;
-                                }).map(a => {
-                                    const emp = users.find(u => u.id === a.userId);
-                                    const hours = a.punchIn && a.punchOut ? (() => { const [ih, im] = a.punchIn.split(':').map(Number); const [oh, om] = a.punchOut.split(':').map(Number); const diff = (oh * 60 + om) - (ih * 60 + im); return `${Math.floor(diff / 60)}h ${diff % 60}m`; })() : '—';
+                                }).map(emp => {
+                                    const a = attendance.find(rec => (rec.userId === emp.id || rec.user_id === emp.id) && rec.date === teamDate);
+                                    const status = getAttendanceStatus(emp.id, teamDate);
+                                    const hours = a?.punchIn && a?.punchOut ? (() => { 
+                                        const [ih, im] = a.punchIn.split(':').map(Number); 
+                                        const [oh, om] = a.punchOut.split(':').map(Number); 
+                                        const diff = (oh * 60 + om) - (ih * 60 + im); 
+                                        return `${Math.floor(diff / 60)}h ${diff % 60}m`; 
+                                    })() : '—';
                                     
-                                    const leaveRec = leaveRequests?.find(l => {
-                                        const rawStart = l.from_date || l.from || '';
-                                        const rawEnd = l.to_date || l.to || '';
-                                        const s = rawStart.split('T')[0];
-                                        const e = rawEnd.split('T')[0];
-                                        const isApproved = (l.status || '').toLowerCase() === 'approved';
-                                        const isMatchingUser = (l.employee_id === a.userId) || (l.employeeId === a.userId);
-                                        return a.date >= s && a.date <= e && isApproved && isMatchingUser;
-                                    });
-                                    const status = leaveRec ? (leaveRec.type === 'WFH' ? 'wfh' : 'leave') : a.status;
-
                                     const displayStatus = (status === 'late' || status === 'early-exit') ? 'present' : status;
-                                    const remark = status === 'late' ? 'Late' : status === 'early-exit' ? 'Early Exit' : '';
+                                    const remark = status === 'late' ? 'Late' : status === 'early-exit' ? 'Early Exit' : (status === 'wo' || status === 'weekly-off') ? 'Weekly Off' : status === 'holiday' ? 'Public Holiday' : '';
 
                                     return (
-                                        <tr key={a.id}>
+                                        <tr key={emp.id}>
                                             <td>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                     <div className="avatar avatar-sm">{emp?.avatar}</div>
                                                     <div>
-                                                        <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{emp?.name || a.userId}</div>
+                                                        <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{emp?.name}</div>
                                                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{emp?.displayId}</div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td style={{ fontSize: '0.85rem' }}>{a.date}</td>
+                                            <td style={{ fontSize: '0.85rem' }}>{teamDate}</td>
                                             <td><span className={`status-pill status-${displayStatus}`}>{displayStatus}</span></td>
-                                            <td style={{ fontSize: '0.82rem', color: remark ? 'var(--brand-primary-light)' : 'var(--text-muted)', fontWeight: remark ? 600 : 400 }}>{remark || '—'}</td>
-                                            <td style={{ fontSize: '0.85rem' }}>{a.punchIn || '—'}</td>
-                                            <td style={{ fontSize: '0.85rem' }}>{a.punchOut || '—'}</td>
+                                            <td style={{ fontSize: '0.82rem', color: (remark === 'Late' || remark === 'Early Exit') ? 'var(--brand-primary-light)' : 'var(--text-muted)', fontWeight: (remark === 'Late' || remark === 'Early Exit') ? 600 : 400 }}>{remark || '—'}</td>
+                                            <td style={{ fontSize: '0.85rem' }}>{a?.punchIn || '—'}</td>
+                                            <td style={{ fontSize: '0.85rem' }}>{a?.punchOut || '—'}</td>
                                             <td style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--brand-primary-light)' }}>{hours}</td>
-                                            <td>{a.hrCorrected ? <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>HR</span> : '—'}</td>
+                                            <td>{a?.hrCorrected ? <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>HR</span> : '—'}</td>
                                             {canManageAttendance && (
                                                 <td>
-                                                    <button className="btn btn-ghost btn-sm" onClick={() => { setHRForm({ userId: a.userId, date: a.date, status: a.status, punchIn: a.punchIn || '', punchOut: a.punchOut || '', leaveType: 'CL', halfDayType: '', location: a.location || 'office' }); setShowHRModal(true); }} title="Correct Attendance"><Edit size={14} /></button>
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => { 
+                                                        setHRForm({ 
+                                                            userId: emp.id, 
+                                                            date: teamDate, 
+                                                            status: a?.status || 'present', 
+                                                            punchIn: a?.punchIn || '', 
+                                                            punchOut: a?.punchOut || '', 
+                                                            leaveType: 'CL', 
+                                                            halfDayType: '', 
+                                                            location: a?.location || 'office' 
+                                                        }); 
+                                                        setShowHRModal(true); 
+                                                    }} title="Correct Attendance"><Edit size={14} /></button>
                                                 </td>
                                             )}
                                         </tr>
                                     );
                                 })}
-                                {attendance.filter(a => {
-                                    if (a.userId === currentUser?.id) return false;
+                                {users.filter(u => {
+                                    if (u.id === currentUser?.id) return false;
                                     if (canViewAll) return true;
-                                    if (isManager) return teamUserIds.includes(a.userId);
+                                    if (isManager) return teamUserIds.includes(u.id);
                                     return false;
-                                }).length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No team attendance records found.</td></tr>}
+                                }).length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No employees found in your team.</td></tr>}
                             </tbody>
                         </table>
                     </div>
@@ -539,6 +563,9 @@ function AttendanceContent() {
                     attendance={attendance}
                     users={users}
                     leaveRequests={leaveRequests}
+                    getAttendanceStatus={getAttendanceStatus}
+                    systemSettings={systemSettings}
+                    companyHolidays={companyHolidays}
                 />
             )}
 
@@ -747,7 +774,7 @@ function CameraPreview() {
 // ──────────────────────────────────────────────────────────────
 // ADMIN GRID – Attendance History By Status / By Punches
 // ──────────────────────────────────────────────────────────────
-function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
+function AttendanceGridAdmin({ mode, attendance, users, leaveRequests, getAttendanceStatus, systemSettings, companyHolidays }) {
     const now = new Date();
     const [filterMonth, setFilterMonth] = useState(now.getMonth()); // 0-indexed
     const [filterYear, setFilterYear] = useState(now.getFullYear());
@@ -771,39 +798,35 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
     function getStatusForDay(userId, day) {
         const dateStr = `${yearStr}-${monthStr}-${String(day).padStart(2, '0')}`;
         const rec = attendance.find(a => a.userId === userId && a.date === dateStr);
-        
-        // 1. ALWAYS check leaves first for the status (Source of Truth)
-        const leaveRec = leaveRequests?.find(l => {
-            const rawStart = l.from_date || l.from || '';
-            const rawEnd = l.to_date || l.to || '';
-            const s = rawStart.split('T')[0];
-            const e = rawEnd.split('T')[0];
-            const isApproved = l.status?.toLowerCase() === 'approved';
-            const isMatchingUser = (l.employee_id === userId) || (l.employeeId === userId);
-            return dateStr >= s && dateStr <= e && isApproved && isMatchingUser;
-        });
-
-        if (leaveRec) {
-            const type = (leaveRec.type || '').toUpperCase();
-            return { 
-                status: type === 'WFH' ? 'wfh' : 'leave', 
-                punchIn: rec?.punchIn || null, 
-                punchOut: rec?.punchOut || null 
-            };
-        }
-
-        // 2. If no leave, use attendance record status
-        if (rec) return { status: rec.status?.toLowerCase(), punchIn: rec.punchIn, punchOut: rec.punchOut };
-
-        // 3. Fallbacks
-        const dateObj = new Date(dateStr);
-        if (dateObj > new Date()) return { status: 'future', punchIn: null, punchOut: null };
-        if (isSunday(day)) return { status: 'weekly-off', punchIn: null, punchOut: null };
-        return { status: 'absent', punchIn: null, punchOut: null };
+        const status = getAttendanceStatus(userId, dateStr);
+        return { status, punchIn: rec?.punchIn, punchOut: rec?.punchOut };
     }
 
-    function isSunday(day) {
-        return new Date(filterYear, filterMonth, day).getDay() === 0;
+    function isHeaderHighlight(day) {
+        const dateStr = `${yearStr}-${monthStr}-${String(day).padStart(2, '0')}`;
+        // Check if ANY employee would have a WO or Holiday on this day
+        // Since holidays and weekends are global, we can just check against systemSettings
+        const date = new Date(filterYear, filterMonth, day);
+        const dayOfWeek = date.getDay();
+        const weekendType = systemSettings.weekend_days || 'sat_sun';
+        
+        const isHoliday = (companyHolidays || []).some(h => (h.date || h) === dateStr);
+        if (isHoliday) return { type: 'holiday', color: '#94a3b8' };
+
+        let isWO = false;
+        if (weekendType === 'sun' && dayOfWeek === 0) isWO = true;
+        else if (weekendType === 'sat_sun' && (dayOfWeek === 0 || dayOfWeek === 6)) isWO = true;
+        else if (weekendType === 'fri_sat' && (dayOfWeek === 5 || dayOfWeek === 6)) isWO = true;
+        else if (weekendType === 'sat_alt') {
+            if (dayOfWeek === 0) isWO = true;
+            else if (dayOfWeek === 6) {
+                const weekNum = Math.ceil(day / 7);
+                if (weekNum === 2 || weekNum === 4) isWO = true;
+            }
+        }
+        
+        if (isWO) return { type: 'wo', color: '#ef4444' };
+        return null;
     }
 
     const cellW = 34;
@@ -834,10 +857,11 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
                 else if (status === 'absent') totalA++;
                 else if (status === 'leave') totalL++;
                 if (mode === 'status') {
+                    if (status === 'wo' || status === 'holiday' || status === 'weekly-off') return 'WO';
                     return status && status !== 'future' ? (STATUS_LABEL[status] || 'P') : '';
                 } else {
                     if (punchIn || punchOut) return `${punchIn || '--:--'} / ${punchOut || '--:--'}`;
-                    if (status === 'weekly-off') return 'WO';
+                    if (status === 'wo' || status === 'weekly-off') return 'WO';
                     if (status === 'absent') return '-';
                     if (status && status !== 'future') return STATUS_LABEL[status] || 'P';
                     return '';
@@ -930,10 +954,15 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
                         </div>
                     ))
                 ) : (
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Showing actual Punch In / Punch Out times. Sundays are highlighted.</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Showing actual Punch In / Punch Out times. Weekends & Holidays are highlighted.</span>
                 )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    <div style={{ width: 20, height: 20, borderRadius: 4, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)' }} />Sun
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        <div style={{ width: 20, height: 20, borderRadius: 4, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)' }} />Weekend
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        <div style={{ width: 20, height: 20, borderRadius: 4, background: 'rgba(148,163,184,0.15)', border: '1px solid rgba(148,163,184,0.3)' }} />Holiday
+                    </div>
                 </div>
             </div>
 
@@ -945,9 +974,11 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
                             <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 6, background: 'var(--bg-card-solid)', padding: '10px 12px', textAlign: 'left', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border-subtle)', borderRight: '1px solid var(--border-subtle)', minWidth: 90, color: 'var(--text-muted)' }}>Emp. ID</th>
                             <th style={{ position: 'sticky', left: 90, top: 0, zIndex: 6, background: 'var(--bg-card-solid)', padding: '10px 14px', textAlign: 'left', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border-subtle)', borderRight: '2px solid var(--border-subtle)', minWidth: 160, color: 'var(--text-muted)' }}>Employee Name</th>
                             {days.map(d => {
-                                const sun = isSunday(d);
+                                const hl = isHeaderHighlight(d);
+                                const bg = hl ? (hl.type === 'holiday' ? 'rgba(148,163,184,0.15)' : 'rgba(239,68,68,0.15)') : 'var(--bg-card-solid)';
+                                const color = hl ? hl.color : 'var(--text-muted)';
                                 return (
-                                    <th key={d} style={{ position: 'sticky', top: 0, zIndex: 2, padding: '8px 2px', textAlign: 'center', fontWeight: 700, fontSize: '0.68rem', borderBottom: '1px solid var(--border-subtle)', width: cellW, minWidth: cellW, background: sun ? 'rgba(239,68,68,0.15)' : 'var(--bg-card-solid)', color: sun ? '#ef4444' : 'var(--text-muted)' }}>
+                                    <th key={d} style={{ position: 'sticky', top: 0, zIndex: 2, padding: '8px 2px', textAlign: 'center', fontWeight: 700, fontSize: '0.68rem', borderBottom: '1px solid var(--border-subtle)', width: cellW, minWidth: cellW, background: bg, color: color }}>
                                         {d}<br /><span style={{ fontSize: '0.58rem', fontWeight: 400 }}>{new Date(filterYear, filterMonth, d).toLocaleDateString('en-IN', { weekday: 'short' })}</span>
                                     </th>
                                 );
@@ -966,8 +997,8 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests }) {
                             let totalP = 0, totalA = 0, totalL = 0;
                             const dayCells = days.map(d => {
                                 const { status, punchIn, punchOut } = getStatusForDay(user.id, d);
-                                const sun = isSunday(d);
-                                const cellBg = sun ? 'rgba(239,68,68,0.05)' : rowBg;
+                                const hl = isHeaderHighlight(d);
+                                const cellBg = hl ? (hl.type === 'holiday' ? 'rgba(148,163,184,0.05)' : 'rgba(239,68,68,0.05)') : rowBg;
                                 if (status === 'present') totalP++;
                                 else if (status === 'absent') totalA++;
                                 else if (status === 'leave') totalL++;

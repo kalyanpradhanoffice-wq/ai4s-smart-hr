@@ -1,7 +1,6 @@
 'use client';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import ClientProviders from './ClientProviders';
 
 function HomeRedirect() {
     const router = useRouter();
@@ -14,5 +13,5 @@ function HomeRedirect() {
 }
 
 export default function HomePage() {
-    return <ClientProviders><HomeRedirect /></ClientProviders>;
+    return <HomeRedirect />;
 }

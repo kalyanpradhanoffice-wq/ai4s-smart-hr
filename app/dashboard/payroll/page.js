@@ -8,10 +8,31 @@ import { can } from '@/lib/rbac';
 import { Download, TrendingUp, Info, CheckCircle, FileSpreadsheet, History } from 'lucide-react';
 
 function PayrollContent() {
-    const { currentUser, users, payroll, addAuditEntry, attendance, activityHistory, logActivity, processPayroll, salaryUpgrades, approveSalaryUpgrade, addToast } = useApp();
+    const { 
+        currentUser, users, payroll, addAuditEntry, attendance, 
+        activityHistory, logActivity, processPayroll, salaryUpgrades, 
+        approveSalaryUpgrade, addToast, systemSettings, 
+        getAttendanceStatus, leaveRequests, companyHolidays 
+    } = useApp();
     const [selectedUser, setSelectedUser] = useState(currentUser?.id);
     const [regime, setRegime] = useState('new');
     const [voluntaryEPF, setVoluntaryEPF] = useState(false);
+    
+    // Dynamic month/year selection
+    const prevMonthDate = new Date();
+    prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
+    const [selectedMonth, setSelectedMonth] = useState(prevMonthDate.getMonth());
+    const [selectedYear, setSelectedYear] = useState(prevMonthDate.getFullYear());
+
+    const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const years = [2024, 2025, 2026, 2027];
+    
+    // Check if the selected time is in the future
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const isFuture = selectedYear > currentYear || (selectedYear === currentYear && selectedMonth > currentMonth);
+
     const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'payslip');
 
@@ -58,126 +79,253 @@ function PayrollContent() {
     const payrollHistory = activityHistory.filter(h => h.module === 'Payroll');
 
     async function handleDownloadPDF() {
-        const { jsPDF } = await import('jspdf');
-        const doc = new jsPDF();
-        const pageW = doc.internal.pageSize.getWidth();
+        if (isFuture) {
+            addToast('Cannot download payslips for future periods.', 'warning');
+            return;
+        }
+        const toastId = addToast('Generating payslip PDF...', 'info');
+        try {
+            const { jsPDF } = await import('jspdf');
+            const doc = new jsPDF();
+            const pageW = doc.internal.pageSize.getWidth();
+            // --- MINIMALIST PROFESSIONAL HEADER ---
+            // Subtle top accent
+            doc.setFillColor(79, 70, 229); // Brand Indigo
+            doc.rect(0, 0, pageW, 2, 'F');
 
-        doc.setFillColor(99, 102, 241);
-        doc.rect(0, 0, pageW, 30, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text('AI4S Smart HR', 14, 12);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text('EMPLOYEE PAYSLIP', 14, 22);
-        doc.text('February 2025', pageW - 14, 22, { align: 'right' });
+            // --- COMPANY LOGO (SVG to PNG Rasterization) - RIGHT ALIGNED ---
+            if (systemSettings.company_logo_svg) {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const svgData = systemSettings.company_logo_svg;
+                    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                    const url = URL.createObjectURL(svgBlob);
+                    const img = new Image();
+                    await new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = url;
+                    });
+                    const scale = 4;
+                    canvas.width = 100 * scale;
+                    canvas.height = 100 * scale;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const imgData = canvas.toDataURL('image/png');
+                    
+                    // Place on the RIGHT side - Large Size
+                    doc.addImage(imgData, 'PNG', pageW - 44, 5, 30, 30);
+                    URL.revokeObjectURL(url);
+                } catch (e) {
+                    console.error('Logo Rasterization Error:', e);
+                }
+            }
 
-        doc.setTextColor(30, 30, 30);
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Employee Details', 14, 42);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        const details = [
-            [`Name: ${emp?.name}`, `Employee ID: ${emp?.displayId}`],
-            [`Designation: ${emp?.designation}`, `Department: ${emp?.department}`],
-            [`Tax Regime: ${regime.toUpperCase()}`, `Working Days: 28`],
-        ];
-        details.forEach((row, i) => {
-            doc.text(row[0], 14, 52 + i * 8);
-            doc.text(row[1], pageW / 2, 52 + i * 8);
-        });
-        doc.setDrawColor(220, 220, 220);
-        doc.line(14, 78, pageW - 14, 78);
+            // Company Text
+            doc.setTextColor(31, 41, 55); 
+            doc.setFontSize(22); // Larger company name
+            doc.setFont('helvetica', 'bold');
+            doc.text(systemSettings.company_name || 'AI4S Smart HR', 14, 18);
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(107, 114, 128);
+            doc.text(systemSettings.company_address || '', 14, 25);
+            if (systemSettings.registration_number) {
+                doc.text(`Reg Number: ${systemSettings.registration_number}`, 14, 31);
+            }
 
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(16, 185, 129);
-        doc.text('EARNINGS', 14, 86);
-        doc.setTextColor(30, 30, 30);
-        doc.setFont('helvetica', 'normal');
-        [['Basic Salary', `Rs ${basic.toLocaleString()}`], ['House Rent Allowance', `Rs ${hra.toLocaleString()}`], ['Special Allowances', `Rs ${allowances.toLocaleString()}`]].forEach((row, i) => {
-            doc.text(row[0], 14, 94 + i * 8);
-            doc.text(row[1], pageW / 2 - 10, 94 + i * 8, { align: 'right' });
-        });
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(16, 185, 129);
-        doc.text('Gross Salary', 14, 122);
-        doc.text(`Rs ${gross.toLocaleString()}`, pageW / 2 - 10, 122, { align: 'right' });
-        doc.line(14, 126, pageW / 2 - 10, 126);
+            // Document Title Section - Moved down to accommodate larger logo
+            doc.setFillColor(249, 250, 251);
+            doc.rect(0, 42, pageW, 14, 'F');
+            doc.setTextColor(79, 70, 229);
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text('OFFICIAL PAYSLIP', 14, 51);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(107, 114, 128);
+            const monthStr = MONTHS[selectedMonth];
+            const yearStr = selectedYear;
+            const monthYear = `${monthStr} ${yearStr}`.toUpperCase();
+            doc.text(`FOR THE MONTH OF ${monthYear}`, pageW - 14, 51, { align: 'right' });
+            
+            let currentY = 72;
 
-        doc.setTextColor(239, 68, 68);
-        doc.text('DEDUCTIONS', pageW / 2 + 5, 86);
-        doc.setTextColor(30, 30, 30);
-        doc.setFont('helvetica', 'normal');
-        const deductions = [
-            [`EPF (Employee 12%)`, `Rs ${epf.employee.toLocaleString()}`],
-            [`ESI (0.75%)`, `Rs ${esi.employee.toLocaleString()}`],
-            ['Professional Tax', `Rs ${pt.toLocaleString()}`],
-            [`TDS (${regime === 'old' ? 'Old' : 'New'} Regime)`, `Rs ${tds.toLocaleString()}`],
-        ].filter(d => !d[1].includes('0') || d[0].includes('Professional'));
-        deductions.forEach((row, i) => {
-            doc.text(row[0], pageW / 2 + 5, 94 + i * 8);
-            doc.text(row[1], pageW - 14, 94 + i * 8, { align: 'right' });
-        });
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(239, 68, 68);
-        doc.text('Total Deductions', pageW / 2 + 5, 122);
-        doc.text(`Rs ${totalDeductions.toLocaleString()}`, pageW - 14, 122, { align: 'right' });
-        doc.line(pageW / 2 + 5, 126, pageW - 14, 126);
+            doc.setTextColor(30, 30, 30);
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Employee Details', 14, currentY);
+            currentY += 10;
 
-        doc.setFillColor(99, 102, 241);
-        doc.rect(14, 132, pageW - 28, 22, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text('NET PAY (TAKE HOME)', 20, 142);
-        doc.setFontSize(14);
-        doc.text(`Rs ${netPay.toLocaleString()}`, pageW - 20, 142, { align: 'right' });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            const details = [
+                [`Name: ${emp?.name || 'N/A'}`, `Employee ID: ${emp?.displayId || 'N/A'}`],
+                [`Designation: ${emp?.designation || 'N/A'}`, `Department: ${emp?.department || 'N/A'}`],
+                [`Tax Regime: ${(regime || 'new').toUpperCase()}`, `Working Days: 28`],
+            ];
+            
+            details.forEach((row) => {
+                doc.text(row[0], 14, currentY);
+                doc.text(row[1], pageW / 2, currentY);
+                currentY += 8;
+            });
 
-        doc.setTextColor(120, 120, 120);
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text('This is a system-generated payslip from AI4S Smart HR. No signature required.', 14, 168);
-        doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 174);
+            currentY += 4;
+            doc.setDrawColor(220, 220, 220);
+            doc.line(14, currentY, pageW - 14, currentY);
+            currentY += 10;
 
-        doc.save(`Payslip_${emp?.name?.replace(/\s+/g, '_')}_Feb_2025.pdf`);
-        addAuditEntry(currentUser?.id, 'PDF_DOWNLOAD', 'Payslip', `Downloaded payslip for ${emp?.name}`);
-        logActivity({ module: 'Payroll', action: 'Payslip Downloaded', actionCode: 'PAYSLIP_DOWNLOAD', performedById: currentUser?.id, performedByName: currentUser?.name, targetEmployeeId: emp?.id, targetEmployeeName: emp?.name, description: `Payslip downloaded for ${emp?.name} — February 2025`, referenceId: `PAY_FEB2025_${emp?.id}` });
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(16, 185, 129);
+            doc.text('EARNINGS', 14, currentY);
+            
+            doc.setTextColor(239, 68, 68);
+            doc.text('DEDUCTIONS', pageW / 2 + 5, currentY);
+            
+            currentY += 8;
+            const tableStartY = currentY;
+
+            doc.setTextColor(30, 30, 30);
+            doc.setFont('helvetica', 'normal');
+            
+            // Draw Earnings Column
+            [['Basic Salary', `Rs ${(basic || 0).toLocaleString()}`], ['House Rent Allowance', `Rs ${(hra || 0).toLocaleString()}`], ['Special Allowances', `Rs ${(allowances || 0).toLocaleString()}`]].forEach((row, i) => {
+                doc.text(row[0], 14, tableStartY + i * 8);
+                doc.text(row[1], pageW / 2 - 10, tableStartY + i * 8, { align: 'right' });
+            });
+            
+            // Draw Deductions Column
+            const deductions = [
+                [`EPF (Employee 12%)`, `Rs ${(epf?.employee || 0).toLocaleString()}`],
+                [`ESI (0.75%)`, `Rs ${(esi?.employee || 0).toLocaleString()}`],
+                ['Professional Tax', `Rs ${(pt || 0).toLocaleString()}`],
+                [`TDS (${regime === 'old' ? 'Old' : 'New'} Regime)`, `Rs ${(tds || 0).toLocaleString()}`],
+            ].filter(d => !d[1].includes(' 0') || d[0].includes('Professional'));
+
+            deductions.forEach((row, i) => {
+                doc.text(row[0], pageW / 2 + 5, tableStartY + i * 8);
+                doc.text(row[1], pageW - 14, tableStartY + i * 8, { align: 'right' });
+            });
+
+            // Calculate max height of both columns
+            const maxRows = Math.max(3, deductions.length);
+            currentY = tableStartY + maxRows * 8 + 4;
+
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(16, 185, 129);
+            doc.text('Gross Salary', 14, currentY);
+            doc.text(`Rs ${(gross || 0).toLocaleString()}`, pageW / 2 - 10, currentY, { align: 'right' });
+            
+            doc.setTextColor(239, 68, 68);
+            doc.text('Total Deductions', pageW / 2 + 5, currentY);
+            doc.text(`Rs ${(totalDeductions || 0).toLocaleString()}`, pageW - 14, currentY, { align: 'right' });
+            
+            currentY += 4;
+            doc.line(14, currentY, pageW / 2 - 10, currentY);
+            doc.line(pageW / 2 + 5, currentY, pageW - 14, currentY);
+            
+            currentY += 12;
+            doc.setFillColor(99, 102, 241);
+            doc.rect(14, currentY, pageW - 28, 22, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text('NET PAY (TAKE HOME)', 20, currentY + 13);
+            doc.setFontSize(14);
+            doc.text(`Rs ${(netPay || 0).toLocaleString()}`, pageW - 20, currentY + 13, { align: 'right' });
+
+            // --- FOOTER SECTION ---
+            const pageH = doc.internal.pageSize.getHeight();
+            doc.setTextColor(150, 150, 150);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.text('This is a system-generated payslip. No signature required.', 14, pageH - 15);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Download Date: ${new Date().toLocaleDateString('en-IN')} ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`, 14, pageH - 10);
+
+            doc.save(`Payslip_${(emp?.name || 'Employee').replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+            addAuditEntry(currentUser?.id, 'PDF_DOWNLOAD', 'Payslip', `Downloaded payslip for ${emp?.name}`);
+            addToast('Payslip downloaded successfully', 'success');
+            const logMonthStr = `${MONTHS[selectedMonth]} ${selectedYear}`;
+            logActivity({ module: 'Payroll', action: 'Payslip Downloaded', actionCode: 'PAYSLIP_DOWNLOAD', performedById: currentUser?.id, performedByName: currentUser?.name, targetEmployeeId: emp?.id, targetEmployeeName: emp?.name, description: `Payslip downloaded for ${emp?.name} — ${logMonthStr}`, referenceId: `PAY_${logMonthStr.replace(/\s+/g, '_')}_${emp?.id}` });
+        } catch (err) {
+            console.error('PDF Generation failed:', err);
+            addToast('Failed to generate PDF: ' + err.message, 'error');
+        }
     }
 
     async function handleProcessPayroll() {
+        if (isFuture) {
+            addToast('Cannot process payroll for future periods.', 'warning');
+            return;
+        }
         const XLSX = await import('xlsx');
-        const data = users.map(u => {
-            const g = u.salary?.gross || 0;
-            const b = u.salary?.basic || 0;
-            const epfCalc = calculateEPF(b, false);
-            const esiCalc = calculateESI(g);
-            const ptCalc = g > 25000 ? 200 : g > 15000 ? 150 : 0;
-            const totalDed = epfCalc.employee + esiCalc.employee + ptCalc;
-            const net = g - totalDed;
-            const attRecs = attendance.filter(a => a.userId === u.id && a.date.startsWith('2025-02'));
-            const presentD = attRecs.filter(a => a.status === 'present' || a.status === 'wfh').length;
-            const leaveD = attRecs.filter(a => a.status === 'leave').length;
+            const data = users.map(u => {
+                const g = u.salary?.gross || 0;
+                const b = u.salary?.basic || 0;
+                const epfCalc = calculateEPF(b, false);
+                const esiCalc = calculateESI(g);
+                const ptCalc = g > 25000 ? 200 : g > 15000 ? 150 : 0;
+                const totalDed = epfCalc.employee + esiCalc.employee + ptCalc;
+                const net = g - totalDed;
+                
+                // Calculate actual payable days for the selected month
+                const year = selectedYear;
+                const month = selectedMonth;
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                
+                let payableDays = 0;
+                let presentCount = 0;
+                let leaveCount = 0;
+                let woCount = 0;
+                let holCount = 0;
+
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    if (new Date(dateStr) > new Date()) continue; // Skip future days in current month
+
+                    const status = getAttendanceStatus(u.id, dateStr);
+
+                    if (['present', 'late', 'early-exit', 'wfh', 'wo', 'holiday'].includes(status)) {
+                    payableDays++;
+                    if (['present', 'late', 'early-exit', 'wfh'].includes(status)) presentCount++;
+                    if (status === 'wo') woCount++;
+                    if (status === 'holiday') holCount++;
+                } else if (status === 'leave') {
+                    payableDays++; // Assuming leaves are paid
+                    leaveCount++;
+                }
+            }
+
             return {
-                'Employee ID': u.displayId, 'Employee Name': u.name, 'Department': u.department,
-                'Designation': u.designation, 'Working Days': 28, 'Present Days': presentD || 28,
-                'Leave Days': leaveD || 0, 'Basic Salary (Rs)': b, 'HRA (Rs)': u.salary?.hra || 0,
-                'Allowances (Rs)': u.salary?.allowances || 0, 'Gross Salary (Rs)': g,
-                'EPF Employee (Rs)': epfCalc.employee, 'ESI Employee (Rs)': esiCalc.employee,
-                'Professional Tax (Rs)': ptCalc, 'Total Deductions (Rs)': totalDed, 'Net Pay (Rs)': net,
+                'Employee ID': u.displayId, 
+                'Employee Name': u.name, 
+                'Department': u.department,
+                'Designation': u.designation, 
+                'Days in Month': daysInMonth,
+                'Payable Days': payableDays,
+                'Present Days': presentCount,
+                'Weekly Offs': woCount,
+                'Holidays': holCount,
+                'Leave Days': leaveCount,
+                'Basic Salary (Rs)': b, 
+                'Gross Salary (Rs)': g,
+                'Total Deductions (Rs)': totalDed, 
+                'Net Pay (Rs)': net,
             };
         });
+        const logMonthStr = `${MONTHS[selectedMonth]} ${selectedYear}`;
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Payroll Feb 2025');
-        XLSX.writeFile(wb, 'AI4S_Payroll_Feb_2025.xlsx');
+        XLSX.utils.book_append_sheet(wb, ws, `Payroll ${logMonthStr}`);
+        XLSX.writeFile(wb, `AI4S_Payroll_${logMonthStr.replace(/\s+/g, '_')}.xlsx`);
 
         // Persist to Supabase
         const payrollBatch = data.map(record => ({
             user_id: users.find(u => u.displayId === record['Employee ID'])?.id,
-            month: 'February 2025',
+            month: `${MONTHS[selectedMonth]} ${selectedYear}`,
             gross_salary: record['Gross Salary (Rs)'],
             net_pay: record['Net Pay (Rs)'],
             deductions: {
@@ -192,12 +340,13 @@ function PayrollContent() {
                 allowances: record['Allowances (Rs)']
             },
             status: 'processed',
-            reference_id: `PAY_FEB2025_${record['Employee ID']}`
+            reference_id: `PAY_${selectedYear}${String(selectedMonth + 1).padStart(2, '0')}_${record['Employee ID']}`
         }));
 
         await processPayroll(payrollBatch);
         addAuditEntry(currentUser?.id, 'PAYROLL_PROCESSED', 'all', 'Processed payroll and downloaded Excel summary');
-        logActivity({ module: 'Payroll', action: 'Payroll Processed', actionCode: 'PAYROLL_PROCESSED', performedById: currentUser?.id, performedByName: currentUser?.name, targetEmployeeName: 'All Employees', description: `Monthly payroll processed for February 2025 — ${users.length} employees`, referenceId: 'PAYROLL_FEB2025' });
+        // logMonthStr defined above
+        logActivity({ module: 'Payroll', action: 'Payroll Processed', actionCode: 'PAYROLL_PROCESSED', performedById: currentUser?.id, performedByName: currentUser?.name, targetEmployeeName: 'All Employees', description: `Monthly payroll processed for ${logMonthStr} — ${users.length} employees`, referenceId: `PAYROLL_${logMonthStr.replace(/\s+/g, '_')}` });
     }
 
     return (
@@ -210,12 +359,17 @@ function PayrollContent() {
                     <p className="page-subtitle">Statutory calculations with EPF, ESI, and TDS</p>
                 </div>
                 {canRunPayroll && (
-                    <button className="btn btn-ghost btn-sm" style={{ gap: 6 }} onClick={handleProcessPayroll}>
+                    <button 
+                        className="btn btn-ghost btn-sm" 
+                        style={{ gap: 6, opacity: isFuture ? 0.5 : 1, cursor: isFuture ? 'not-allowed' : 'pointer' }} 
+                        onClick={handleProcessPayroll}
+                        disabled={isFuture}
+                    >
                         <TrendingUp size={16} /> Process Payroll (Excel)
                     </button>
                 )}
             </div>
-            
+
 
             {/* ── TAB BAR ── */}
             <div className="tabs" style={{ marginBottom: 28 }}>
@@ -278,6 +432,21 @@ function PayrollContent() {
                         )}
 
                         <div className="card" style={{ padding: 16 }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: 12 }}>Salary Period</div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <select className="form-select" style={{ marginBottom: 0 }} value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))}>
+                                    {MONTHS.map((m, i) => {
+                                        const isMonthFuture = selectedYear > currentYear || (selectedYear === currentYear && i > currentMonth);
+                                        return <option key={m} value={i} disabled={isMonthFuture}>{m}{isMonthFuture ? ' (Future)' : ''}</option>;
+                                    })}
+                                </select>
+                                <select className="form-select" style={{ width: 95, marginBottom: 0 }} value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}>
+                                    {years.map(y => <option key={y} value={y} disabled={y > currentYear}>{y}{y > currentYear ? ' (Future)' : ''}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="card" style={{ padding: 16 }}>
                             <div style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: 12 }}>Income Tax Regime</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {['old', 'new'].map(r => (
@@ -319,20 +488,60 @@ function PayrollContent() {
 
                     {/* Right panel: Payslip display */}
                     <div style={{ flex: 1 }}>
-                        <div className="card">
-                            {/* Payslip header */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border-subtle)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    <div style={{ width: 40, height: 40, background: 'var(--gradient-brand)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 900, color: 'white' }}>AI</div>
+                        {isFuture ? (
+                            <div className="card" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                                <div style={{ background: 'rgba(99,102,241,0.08)', width: 80, height: 80, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', color: 'var(--brand-primary)' }}>
+                                    <FileSpreadsheet size={40} />
+                                </div>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: 10 }}>Payroll Data Unavailable</h3>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: 400, margin: '0 auto' }}>
+                                    Payslips and statutory records for future periods ({MONTHS[selectedMonth]} {selectedYear}) are not yet calculated or finalized.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="card">
+                                {/* Payslip header */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingBottom: 20, borderBottom: '2px solid var(--brand-primary)', background: '#f9fafb', padding: '20px', borderRadius: '12px' }}>
                                     <div>
-                                        <div style={{ fontWeight: 700, fontSize: '1rem' }}>AI4S Smart HR</div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Payslip — February 2025</div>
+                                        <div style={{ color: 'var(--brand-primary)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', marginBottom: 4 }}>
+                                            ORGANIZATION
+                                        </div>
+                                        <div style={{ fontWeight: 800, fontSize: '1.4rem', color: '#111827' }}>{systemSettings.company_name || 'AI4S Smart HR'}</div>
+                                        <div style={{ fontSize: '0.85rem', color: '#4b5563', marginTop: 4, maxWidth: '300px' }}>
+                                            {systemSettings.company_address || 'Organization Address'}
+                                        </div>
+                                        {systemSettings.registration_number && (
+                                            <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: 2 }}>
+                                                Reg: {systemSettings.registration_number}
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    {systemSettings.company_logo_svg ? (
+                                        <div 
+                                            dangerouslySetInnerHTML={{ __html: systemSettings.company_logo_svg }} 
+                                            style={{ width: 100, height: 100, borderRadius: 12, background: 'white', padding: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #e5e7eb', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                        />
+                                    ) : (
+                                        <div style={{ width: 80, height: 80, background: 'var(--gradient-brand)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 900, color: 'white' }}>
+                                            {systemSettings.company_name ? systemSettings.company_name.substring(0, 2).toUpperCase() : 'AI'}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, padding: '0 10px' }}>
+                                    <div>
+                                        <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#111827' }}>Pay Advice</h4>
+                                        <p style={{ margin: 0, fontSize: '0.8rem', color: '#6b7280' }}>Statement of Earnings & Deductions</p>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--brand-primary)' }}>{MONTHS[selectedMonth]} {selectedYear}</div>
+                                        <button className="btn btn-ghost btn-sm" onClick={handleDownloadPDF} style={{ marginTop: 4 }}>
+                                            <Download size={14} /> Export PDF
+                                        </button>
                                     </div>
                                 </div>
-                                <button className="btn btn-ghost btn-sm" onClick={handleDownloadPDF}>
-                                    <Download size={14} /> Download PDF
-                                </button>
-                            </div>
+                                {/* Rest of the payslip UI... */}
 
                             {/* Employee meta */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24, padding: '14px 16px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
@@ -405,7 +614,8 @@ function PayrollContent() {
                                     <div style={{ fontSize: '0.76rem', marginTop: 4, fontWeight: 700, opacity: 1 }}>Total CTC: ₹{(gross + epf.employer + esi.employer).toLocaleString()}</div>
                                 </div>
                             </div>
-                        </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -462,7 +672,7 @@ function PayrollContent() {
                     </div>
                 </div>
             )}
- 
+
             {/* ── TAB CONTENT: UPGRADES ── */}
             {activeTab === 'upgrades' && (
                 <div className="card">
@@ -485,7 +695,7 @@ function PayrollContent() {
                                     const isSuper = currentUser.role === 'super_admin';
                                     const totalLevels = su.level2_approver_id ? 2 : 1;
                                     const alreadyActed = (su.approvals || []).some(a => a.approverId === currentUser.id);
-                                    
+
                                     const canAct = (isL1 || isL2 || isSuper) && !alreadyActed;
 
                                     return (

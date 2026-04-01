@@ -7,7 +7,7 @@ import { PERMISSIONS, DEPARTMENTS, DESIGNATIONS, EMPLOYEE_TYPES, calculateGratui
 import { Plus, Search, Mail, Phone, Edit2, Key, Filter, UserPlus, Trash2, Activity, FileCheck, CheckCircle, Circle, AlertCircle, FileText, Award, CheckCheck, UserMinus, ToggleLeft, ToggleRight } from 'lucide-react';
 
 function EmployeesContent() {
-    const { currentUser, users, customRoles, resetPassword, createUser, updateUser, deactivateUser, activateUser, deleteUser, updateOnboardingKYC, finalizeOnboarding, updateOffboardingClearance, addToast } = useApp();
+    const { currentUser, users, customRoles, systemSettings, resetPassword, createUser, updateUser, deactivateUser, activateUser, deleteUser, updateOnboardingKYC, finalizeOnboarding, updateOffboardingClearance, addToast } = useApp();
     const [search, setSearch] = useState('');
     const [deptFilter, setDeptFilter] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
@@ -76,7 +76,8 @@ function EmployeesContent() {
         salaryBasic: '', salaryHra: '',
         // Optional fields
         phone: '', location: '', dob: '', gender: '', pan: '', managerId: '', functionalManagerId: '',
-        shiftIn: '10:00', shiftOut: '19:00'
+        shiftIn: systemSettings?.shift_start || '10:00',
+        shiftOut: systemSettings?.shift_end || '19:00'
     });
     // Generate the next employee ID for display
     const nextEmpNum = users.length + 1;
@@ -147,7 +148,8 @@ function EmployeesContent() {
                 joinDate: new Date().toISOString().split('T')[0],
                 salaryBasic: '', salaryHra: '',
                 phone: '', location: '', dob: '', gender: '', pan: '', managerId: '', functionalManagerId: '',
-                shiftIn: '10:00', shiftOut: '19:00'
+                shiftIn: systemSettings?.shift_start || '10:00',
+                shiftOut: systemSettings?.shift_end || '19:00'
             });
         } else {
             addToast("Error: " + error, "error", "\u274c");
@@ -164,8 +166,8 @@ function EmployeesContent() {
             salaryHra: emp.salary?.hra || '',
             managerId: emp.managerId || emp.reportingTo || '',
             functionalManagerId: emp.functionalManagerId || '',
-            shiftIn: emp.shiftIn || emp.shift_in || '10:00',
-            shiftOut: emp.shiftOut || emp.shift_out || '19:00'
+            shiftIn: emp.shiftIn || emp.shift_in || systemSettings?.shift_start || '10:00',
+            shiftOut: emp.shiftOut || emp.shift_out || systemSettings?.shift_end || '19:00'
         });
         setShowEditModal(emp);
     }

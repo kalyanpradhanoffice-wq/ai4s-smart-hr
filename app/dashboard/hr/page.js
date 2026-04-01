@@ -6,14 +6,7 @@ import { useState } from 'react';
 import { Users, Clock, CheckCheck, AlertTriangle, TrendingUp, DollarSign, Activity, Shield, FileText, Star, Briefcase, Edit, CreditCard } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, Cell } from 'recharts';
 
-const payrollTrend = [
-    { month: 'Oct', amount: 620000 }, { month: 'Nov', amount: 635000 }, { month: 'Dec', amount: 680000 },
-    { month: 'Jan', amount: 670000 }, { month: 'Feb', amount: 695000 }, { month: 'Mar', amount: 710000 },
-];
-const attendanceTrend = [
-    { day: 'Mon', present: 7, absent: 1 }, { day: 'Tue', present: 8, absent: 0 }, { day: 'Wed', present: 6, absent: 2 },
-    { day: 'Thu', present: 8, absent: 0 }, { day: 'Fri', present: 7, absent: 1 },
-];
+// Constants removed to use dynamic data instead
 
 function HRContent() {
     const router = useRouter();
@@ -33,13 +26,52 @@ function HRContent() {
         return isApproved && todayStr >= s && todayStr <= e;
     }).length;
 
-    const complianceItems = [
-        { label: 'EPF Filing', status: 'green', due: 'Mar 15, 2025' },
-        { label: 'ESI Challan', status: 'green', due: 'Mar 15, 2025' },
-        { label: 'TDS Deposit', status: 'orange', due: 'Mar 7, 2025' },
-        { label: 'Professional Tax', status: 'green', due: 'Mar 31, 2025' },
-        { label: 'Labour Welfare Fund', status: 'green', due: 'Mar 31, 2025' },
-    ];
+    // --- Dynamic Analytics Transformation ---
+    const getPayrollTrend = () => {
+        if (!payroll || payroll.length === 0) return [];
+        
+        // Group by month
+        const monthlyData = payroll.reduce((acc, p) => {
+            const date = new Date(p.processed_on || p.paidOn || new Date());
+            const monthKey = date.toLocaleString('en-IN', { month: 'short' });
+            acc[monthKey] = (acc[monthKey] || 0) + (Number(p.net_pay || p.netPay) || 0);
+            return acc;
+        }, {});
+
+        // Get last 6 months in order
+        const trend = [];
+        const now = new Date();
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const m = d.toLocaleString('en-IN', { month: 'short' });
+            trend.push({ month: m, amount: monthlyData[m] || 0 });
+        }
+        return trend;
+    };
+
+    const getComplianceHealth = () => {
+        const now = new Date();
+        const day = now.getDate();
+        const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const prevMonthKey = prevMonthDate.toISOString().substring(0, 7); // YYYY-MM
+        
+        // Check if previous month's payroll is processed
+        const isPrevMonthPayrollProcessed = payroll.some(p => {
+            const pDate = new Date(p.processed_on || p.paidOn);
+            return pDate.toISOString().substring(0, 7) === prevMonthKey;
+        });
+
+        return [
+            { label: 'EPF Filing (15th)', status: isPrevMonthPayrollProcessed ? 'green' : (day > 15 ? 'red' : 'orange'), due: `15th of ${now.toLocaleString('en-IN', { month: 'short' })}` },
+            { label: 'ESI Challan (15th)', status: isPrevMonthPayrollProcessed ? 'green' : (day > 15 ? 'red' : 'orange'), due: `15th of ${now.toLocaleString('en-IN', { month: 'short' })}` },
+            { label: 'TDS Deposit (7th)', status: isPrevMonthPayrollProcessed ? 'green' : (day > 7 ? 'red' : 'orange'), due: `7th of ${now.toLocaleString('en-IN', { month: 'short' })}` },
+            { label: 'Professional Tax', status: 'green', due: 'End of Month' },
+            { label: 'Labour Welfare Fund', status: 'green', due: 'Quarterly' },
+        ];
+    };
+
+    const currentPayrollTrend = getPayrollTrend();
+    const currentComplianceItems = getComplianceHealth();
 
     // --- Analytics Transformation ---
     const deptHeadcount = users.reduce((acc, user) => {
@@ -213,7 +245,7 @@ function HRContent() {
                         <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Net salary disbursed monthly (₹)</p>
                     </div>
                     <ResponsiveContainer width="100%" height={200}>
-                        <AreaChart data={payrollTrend}>
+                        <AreaChart data={currentPayrollTrend}>
                             <defs>
                                 <linearGradient id="payGrad" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -232,7 +264,7 @@ function HRContent() {
                 <div className="card">
                     <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 16 }}>Compliance Health</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {complianceItems.map(c => (
+                        {currentComplianceItems.map(c => (
                             <div key={c.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-glass)', border: '1px solid var(--border-subtle)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: c.status === 'green' ? '#10b981' : '#f59e0b', flexShrink: 0 }} />

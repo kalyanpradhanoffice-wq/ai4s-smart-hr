@@ -5,7 +5,6 @@ import { useApp } from '@/lib/AppContext';
 import { isNetworkRestricted } from '@/lib/rbac';
 import { supabase } from '@/lib/supabase';
 import { Eye, EyeOff, Wifi, WifiOff, Shield, AlertCircle, X, Lock, Mail, ChevronRight } from 'lucide-react';
-import ClientProviders from '../ClientProviders';
 
 function LoginPage() {
     const router = useRouter();
@@ -40,12 +39,12 @@ function LoginPage() {
                 if (data.ip) {
                     setCurrentIP(data.ip);
                     setNetworkStatus('detected');
-                    
+
                     // Client-side visual verification (optional, purely for UI feedback)
                     if (actualConfig?.wifiRestrictionEnabled && actualConfig?.allowedAccessPoints) {
                         const verified = actualConfig.allowedAccessPoints.some(ap => {
-                           if (!ap.ip) return false;
-                           return data.ip.startsWith(ap.ip);
+                            if (!ap.ip) return false;
+                            return data.ip.startsWith(ap.ip);
                         });
                         setIsNetworkAllowed(verified);
                     } else {
@@ -163,7 +162,7 @@ function LoginPage() {
                                 <div className="network-badge checking"><div className="spinner" style={{ width: 12, height: 12 }} /> Identifying network...</div>
                             ) : networkStatus === 'detected' ? (
                                 <div className={`network-badge ${isNetworkAllowed ? 'allowed' : 'restricted'}`}>
-                                    {isNetworkAllowed ? <Wifi size={13} /> : <WifiOff size={13} />} 
+                                    {isNetworkAllowed ? <Wifi size={13} /> : <WifiOff size={13} />}
                                     {isNetworkAllowed ? 'Verified Office Network' : 'Guest / Unknown Network'}
                                 </div>
                             ) : (
@@ -219,12 +218,12 @@ function LoginPage() {
                                 <a href="/forgot-password" style={{ fontSize: '0.8rem', color: 'var(--brand-primary-light)' }}>Forgot password?</a>
                             </div>
 
-                            <button 
-                                type="submit" 
-                                className="btn btn-primary w-full" 
-                                disabled={loading} 
+                            <button
+                                type="submit"
+                                className="btn btn-primary w-full"
+                                disabled={loading}
                                 style={{ justifyContent: 'center', gap: 8 }}
-                             >
+                            >
                                 {loading ? (
                                     <><div className="spinner" style={{ width: 16, height: 16 }} /> Processing...</>
                                 ) : (
@@ -274,11 +273,6 @@ function LoginPage() {
         .network-badge.restricted { background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
         .network-badge.allowed { background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
         .login-form { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
-        .login-demo { margin-top: 8px; }
-        .login-demo-title { display: flex; align-items: center; margin-bottom: 12px; }
-        .login-demo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-        .login-demo-btn { border: 1px solid var(--border-subtle); background: var(--bg-glass); border-radius: var(--radius-md); padding: 8px 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; font-family: var(--font-body); transition: all var(--transition-fast); }
-        .login-demo-btn:hover { border-color: var(--accent, var(--brand-primary)); background: rgba(99,102,241,0.08); transform: translateY(-2px); }
         @keyframes animate-scale-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
         .animate-scale-in { animation: animate-scale-in 0.25s ease; }
         @media (max-width: 900px) {
@@ -299,5 +293,5 @@ function LoginPage() {
 }
 
 export default function LoginWrapper() {
-    return <ClientProviders><LoginPage /></ClientProviders>;
+    return <LoginPage />;
 }
