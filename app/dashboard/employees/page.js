@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 import { can, getRoleMeta } from '@/lib/rbac';
 import { PERMISSIONS, DEPARTMENTS, DESIGNATIONS, EMPLOYEE_TYPES, calculateGratuity, ONBOARDING_DOCUMENTS, OFFBOARDING_CLEARANCES } from '@/lib/constants';
 import { Plus, Search, Mail, Phone, Edit2, Key, Filter, UserPlus, Trash2, Activity, FileCheck, CheckCircle, Circle, AlertCircle, FileText, Award, CheckCheck, UserMinus, ToggleLeft, ToggleRight } from 'lucide-react';
+import { SHIFTS } from '@/lib/shifts';
+
 
 function EmployeesContent() {
     const { currentUser, users, customRoles, systemSettings, resetPassword, createUser, updateUser, deactivateUser, activateUser, deleteUser, updateOnboardingKYC, finalizeOnboarding, updateOffboardingClearance, addToast } = useApp();
@@ -76,9 +78,9 @@ function EmployeesContent() {
         salaryBasic: '', salaryHra: '',
         // Optional fields
         phone: '', location: '', dob: '', gender: '', pan: '', managerId: '', functionalManagerId: '',
-        shiftIn: systemSettings?.shift_start || '10:00',
-        shiftOut: systemSettings?.shift_end || '19:00'
+        shiftType: 'GS'
     });
+
     // Generate the next employee ID for display
     const nextEmpNum = users.length + 1;
     const previewEmpId = `AI4S${String(nextEmpNum).padStart(3, '0')}`;
@@ -148,9 +150,9 @@ function EmployeesContent() {
                 joinDate: new Date().toISOString().split('T')[0],
                 salaryBasic: '', salaryHra: '',
                 phone: '', location: '', dob: '', gender: '', pan: '', managerId: '', functionalManagerId: '',
-                shiftIn: systemSettings?.shift_start || '10:00',
-                shiftOut: systemSettings?.shift_end || '19:00'
+                shiftType: 'GS'
             });
+
         } else {
             addToast("Error: " + error, "error", "\u274c");
         }
@@ -166,9 +168,9 @@ function EmployeesContent() {
             salaryHra: emp.salary?.hra || '',
             managerId: emp.managerId || emp.reportingTo || '',
             functionalManagerId: emp.functionalManagerId || '',
-            shiftIn: emp.shiftIn || emp.shift_in || systemSettings?.shift_start || '10:00',
-            shiftOut: emp.shiftOut || emp.shift_out || systemSettings?.shift_end || '19:00'
+            shiftType: emp.shiftType || 'GS'
         });
+
         setShowEditModal(emp);
     }
 
@@ -438,13 +440,14 @@ function EmployeesContent() {
                                     </select>
                                 </div>
                                 <div className="form-group">
-                                    <label className="form-label" style={{ color: 'var(--brand-primary-light)' }}>Shift Start Time</label>
-                                    <input type="time" className="form-input" value={newEmpForm.shiftIn} onChange={e => setNewEmpForm(f => ({ ...f, shiftIn: e.target.value }))} />
+                                    <label className="form-label" style={{ color: 'var(--brand-primary-light)' }}>Work Shift *</label>
+                                    <select className="form-select" value={newEmpForm.shiftType} onChange={e => setNewEmpForm(f => ({ ...f, shiftType: e.target.value }))}>
+                                        {Object.entries(SHIFTS).map(([key, s]) => (
+                                            <option key={key} value={key}>{s.name} ({s.start} - {s.end})</option>
+                                        ))}
+                                    </select>
                                 </div>
-                                <div className="form-group">
-                                    <label className="form-label" style={{ color: 'var(--brand-primary-light)' }}>Shift End Time</label>
-                                    <input type="time" className="form-input" value={newEmpForm.shiftOut} onChange={e => setNewEmpForm(f => ({ ...f, shiftOut: e.target.value }))} />
-                                </div>
+
                             </div>
 
                             <div style={{ fontWeight: 700, fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 6, marginBottom: 14 }}>Payroll Baseline</div>
@@ -570,13 +573,14 @@ function EmployeesContent() {
                                     </select>
                                 </div>
                                 <div className="form-group">
-                                    <label className="form-label" style={{ color: 'var(--brand-primary-light)' }}>Shift Start Time</label>
-                                    <input type="time" className="form-input" value={editForm.shiftIn} onChange={e => setEditForm(f => ({ ...f, shiftIn: e.target.value }))} />
+                                    <label className="form-label" style={{ color: 'var(--brand-primary-light)' }}>Work Shift *</label>
+                                    <select className="form-select" value={editForm.shiftType} onChange={e => setEditForm(f => ({ ...f, shiftType: e.target.value }))}>
+                                        {Object.entries(SHIFTS).map(([key, s]) => (
+                                            <option key={key} value={key}>{s.name} ({s.start} - {s.end})</option>
+                                        ))}
+                                    </select>
                                 </div>
-                                <div className="form-group">
-                                    <label className="form-label" style={{ color: 'var(--brand-primary-light)' }}>Shift End Time</label>
-                                    <input type="time" className="form-input" value={editForm.shiftOut} onChange={e => setEditForm(f => ({ ...f, shiftOut: e.target.value }))} />
-                                </div>
+
                             </div>
 
                             <h4 style={{ fontSize: '0.9rem', marginBottom: 12, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 8 }}>Payroll Baseline</h4>

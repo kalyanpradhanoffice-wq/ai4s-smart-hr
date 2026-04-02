@@ -239,7 +239,7 @@ export default function TopHeader({ title, customRoles }) {
                             </div>
                             {[
                                 { icon: User, label: 'My Profile', href: '/dashboard/profile' },
-                                { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
+                                ...(currentUser?.role === 'super_admin' ? [{ icon: Settings, label: 'Settings', href: '/dashboard/settings' }] : []),
                             ].map(item => (
                                 <button key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.85rem', transition: 'all 0.15s', fontFamily: 'var(--font-body)' }}
                                     onMouseOver={e => e.currentTarget.style.background = 'var(--bg-glass)'}

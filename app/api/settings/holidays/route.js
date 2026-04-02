@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { verifySuperAdmin } from '@/lib/auth-server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -7,7 +8,10 @@ const supabase = createClient(
 );
 
 // GET all company holidays
-export async function GET() {
+export async function GET(req) {
+  const { authorized, error: authError } = await verifySuperAdmin(req);
+  if (!authorized) return NextResponse.json({ error: authError }, { status: 403 });
+
   try {
     const { data, error } = await supabase
       .from('company_holidays')
@@ -24,6 +28,9 @@ export async function GET() {
 
 // POST — create a new holiday
 export async function POST(req) {
+  const { authorized, error: authError } = await verifySuperAdmin(req);
+  if (!authorized) return NextResponse.json({ error: authError }, { status: 403 });
+
   try {
     const body = await req.json();
     const { name, date, type } = body;
@@ -47,6 +54,9 @@ export async function POST(req) {
 
 // PUT — update existing holiday
 export async function PUT(req) {
+  const { authorized, error: authError } = await verifySuperAdmin(req);
+  if (!authorized) return NextResponse.json({ error: authError }, { status: 403 });
+
   try {
     const body = await req.json();
     const { id, name, date, type } = body;
@@ -75,6 +85,9 @@ export async function PUT(req) {
 
 // DELETE — remove a holiday
 export async function DELETE(req) {
+  const { authorized, error: authError } = await verifySuperAdmin(req);
+  if (!authorized) return NextResponse.json({ error: authError }, { status: 403 });
+
   try {
     const { id } = await req.json();
 

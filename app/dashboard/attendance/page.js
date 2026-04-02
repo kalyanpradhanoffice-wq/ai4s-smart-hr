@@ -11,13 +11,15 @@ import * as XLSX from 'xlsx';
 const STATUS_COLORS = {
     present: '#10b981', absent: '#ef4444', leave: '#06b6d4',
     wfh: '#8b5cf6', 'half-day': '#f59e0b', 'weekly-off': '#6366f1',
-    wo: '#6366f1', holiday: '#94a3b8'
+    wo: '#6366f1', holiday: '#94a3b8', late: '#f59e0b', 'early-exit': '#f59e0b'
 };
 
+
 const STATUS_LABEL = {
-    present: 'P', absent: 'A', leave: 'L', wfh: 'WFH', 'half-day': 'HL', 'weekly-off': 'WO',
-    wo: 'WO', holiday: 'HOL', late: 'P', 'early-exit': 'P'
+    present: 'P', absent: 'A', leave: 'L', wfh: 'WFH', 'half-day': 'HD', 'weekly-off': 'WO',
+    wo: 'WO', holiday: 'HOL', late: 'L', 'early-exit': 'EO'
 };
+
 
 const STATUS_OPTIONS = [
     { value: 'present', label: 'Present' },
@@ -853,9 +855,10 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests, getAttend
             let totalP = 0, totalA = 0, totalL = 0;
             const dayCols = days.map(d => {
                 const { status, punchIn, punchOut } = getStatusForDay(user.id, d);
-                if (status === 'present') totalP++;
+                if (['present', 'late', 'early-exit'].includes(status)) totalP++;
                 else if (status === 'absent') totalA++;
                 else if (status === 'leave') totalL++;
+
                 if (mode === 'status') {
                     if (status === 'wo' || status === 'holiday' || status === 'weekly-off') return 'WO';
                     return status && status !== 'future' ? (STATUS_LABEL[status] || 'P') : '';
@@ -870,10 +873,11 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests, getAttend
 
             const remarks = days.map(d => {
                 const { status } = getStatusForDay(user.id, d);
-                if (status === 'late') return `${d}: Late`;
-                if (status === 'early-exit') return `${d}: Early Exit`;
+                if (status === 'late') return `${d}:L`;
+                if (status === 'early-exit') return `${d}:EO`;
                 return null;
             }).filter(Boolean).join(', ');
+
 
             return [
                 user.displayId || user.employee_id || '',
@@ -1003,7 +1007,8 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests, getAttend
                                 else if (status === 'absent') totalA++;
                                 else if (status === 'leave') totalL++;
                                 const displayStatus = (status === 'late' || status === 'early-exit') ? 'present' : status;
-                                const color = STATUS_COLORS[displayStatus] || 'var(--text-muted)';
+                                const color = STATUS_COLORS[status] || STATUS_COLORS[displayStatus] || 'var(--text-muted)';
+
 
                                 if (mode === 'status') {
                                     return (
@@ -1062,9 +1067,12 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests, getAttend
                                         {days.map(d => {
                                             const { status } = getStatusForDay(user.id, d);
                                             if (status === 'late') return `D${d}:L`;
-                                            if (status === 'early-exit') return `D${d}:E`;
+                                            if (status === 'early-exit') return `D${d}:EO`;
+                                            if (status === 'half-day') return `D${d}:HD`;
+                                            if (status === 'missing_punch') return `D${d}:MP`;
                                             return null;
                                         }).filter(Boolean).join(', ') || '—'}
+
                                     </td>
                                 </tr>
                             );

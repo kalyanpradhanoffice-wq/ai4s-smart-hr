@@ -261,61 +261,87 @@ function PayrollContent() {
             addToast('Cannot process payroll for future periods.', 'warning');
             return;
         }
+
         const XLSX = await import('xlsx');
-            const data = users.map(u => {
-                const g = u.salary?.gross || 0;
-                const b = u.salary?.basic || 0;
-                const epfCalc = calculateEPF(b, false);
-                const esiCalc = calculateESI(g);
-                const ptCalc = g > 25000 ? 200 : g > 15000 ? 150 : 0;
-                const totalDed = epfCalc.employee + esiCalc.employee + ptCalc;
-                const net = g - totalDed;
-                
-                // Calculate actual payable days for the selected month
-                const year = selectedYear;
-                const month = selectedMonth;
-                const daysInMonth = new Date(year, month + 1, 0).getDate();
-                
-                let payableDays = 0;
-                let presentCount = 0;
-                let leaveCount = 0;
-                let woCount = 0;
-                let holCount = 0;
+        const cutoff = systemSettings.attendance_cutoff || 22;
+        
+        // Define Cycle: from (cutoff+1) of previous month to (cutoff) of selected month
+        const cycleEnd = new Date(selectedYear, selectedMonth, cutoff);
+        const cycleStart = new Date(selectedYear, selectedMonth - 1, cutoff + 1);
+        
+        const data = users.map(u => {
+            const g = u.salary?.gross || 0;
+            const b = u.salary?.basic || 0;
+            const dailyRate = g / 30; // Standard 30-day month for rate calculation
 
-                for (let d = 1; d <= daysInMonth; d++) {
-                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                    if (new Date(dateStr) > new Date()) continue; // Skip future days in current month
+            let presentCount = 0;
+            let leaveCount = 0;
+            let woCount = 0;
+            let holCount = 0;
+            let lateCount = 0;
+            let halfDayCount = 0;
+            let absentCount = 0;
+            let missingPunchCount = 0;
 
-                    const status = getAttendanceStatus(u.id, dateStr);
+            const curr = new Date(cycleStart);
+            while (curr <= cycleEnd) {
+                const dateStr = curr.toISOString().split('T')[0];
+                const status = getAttendanceStatus(u.id, dateStr);
 
-                    if (['present', 'late', 'early-exit', 'wfh', 'wo', 'holiday'].includes(status)) {
-                    payableDays++;
-                    if (['present', 'late', 'early-exit', 'wfh'].includes(status)) presentCount++;
-                    if (status === 'wo') woCount++;
-                    if (status === 'holiday') holCount++;
-                } else if (status === 'leave') {
-                    payableDays++; // Assuming leaves are paid
-                    leaveCount++;
-                }
+                if (status === 'present') presentCount++;
+                else if (status === 'late') lateCount++;
+                else if (status === 'half-day') halfDayCount++;
+                else if (status === 'absent') absentCount++;
+                else if (status === 'missing_punch') missingPunchCount++;
+                else if (status === 'leave') leaveCount++;
+                else if (status === 'wo') woCount++;
+                else if (status === 'holiday') holCount++;
+
+                curr.setDate(curr.getDate() + 1);
             }
+
+            // Deduction Logic
+            // 1. 3 Lates = 0.5 Day LOP
+            const lateDeductionDays = Math.floor(lateCount / 3) * 0.5;
+            // 2. Half Day = 0.5 Day LOP
+            const halfDayDeductionDays = halfDayCount * 0.5;
+            // 3. Absent = 1.0 Day LOP (Missing Punch treated as Absent for payroll if not fixed)
+            const absentDeductionDays = absentCount + missingPunchCount;
+
+            const totalLopDays = lateDeductionDays + halfDayDeductionDays + absentDeductionDays;
+            const lopAmount = Math.round(totalLopDays * dailyRate);
+
+            const epfCalc = calculateEPF(b, voluntaryEPF);
+            const esiCalc = calculateESI(g);
+            const ptCalc = g > 25000 ? 200 : g > 15000 ? 150 : 0;
+            
+            const totalStatutoryDeductions = epfCalc.employee + esiCalc.employee + ptCalc;
+            const totalDeductions = totalStatutoryDeductions + lopAmount;
+            const net = g - totalDeductions;
 
             return {
                 'Employee ID': u.displayId, 
                 'Employee Name': u.name, 
                 'Department': u.department,
                 'Designation': u.designation, 
-                'Days in Month': daysInMonth,
-                'Payable Days': payableDays,
+                'Cycle Period': `${cycleStart.toLocaleDateString()} to ${cycleEnd.toLocaleDateString()}`,
                 'Present Days': presentCount,
+                'Late Days': lateCount,
+                'Half Days': halfDayCount,
+                'Absent Days': absentCount,
+                'Missing Punches': missingPunchCount,
                 'Weekly Offs': woCount,
                 'Holidays': holCount,
                 'Leave Days': leaveCount,
-                'Basic Salary (Rs)': b, 
+                '3-Late LOP (Days)': lateDeductionDays,
+                'Total LOP Days': totalLopDays,
                 'Gross Salary (Rs)': g,
-                'Total Deductions (Rs)': totalDed, 
+                'LOP Deduction (Rs)': lopAmount,
+                'PF/ESI/PT (Rs)': totalStatutoryDeductions,
                 'Net Pay (Rs)': net,
             };
         });
+
         const logMonthStr = `${MONTHS[selectedMonth]} ${selectedYear}`;
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();

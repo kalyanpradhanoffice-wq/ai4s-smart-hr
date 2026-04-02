@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { verifySuperAdmin } from '@/lib/auth-server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -7,7 +8,10 @@ const supabase = createClient(
 );
 
 // GET all leave types
-export async function GET() {
+export async function GET(req) {
+  const { authorized, error: authError } = await verifySuperAdmin(req);
+  if (!authorized) return NextResponse.json({ error: authError }, { status: 403 });
+
   try {
     const { data, error } = await supabase
       .from('leave_types')
@@ -24,6 +28,9 @@ export async function GET() {
 
 // POST — create a new leave type
 export async function POST(req) {
+  const { authorized, error: authError } = await verifySuperAdmin(req);
+  if (!authorized) return NextResponse.json({ error: authError }, { status: 403 });
+
   try {
     const body = await req.json();
     const { name, yearly_quota, is_active } = body;
@@ -47,6 +54,9 @@ export async function POST(req) {
 
 // PUT — update existing leave type
 export async function PUT(req) {
+  const { authorized, error: authError } = await verifySuperAdmin(req);
+  if (!authorized) return NextResponse.json({ error: authError }, { status: 403 });
+
   try {
     const body = await req.json();
     const { id, name, yearly_quota, is_active } = body;
@@ -75,6 +85,9 @@ export async function PUT(req) {
 
 // DELETE — remove a leave type
 export async function DELETE(req) {
+  const { authorized, error: authError } = await verifySuperAdmin(req);
+  if (!authorized) return NextResponse.json({ error: authError }, { status: 403 });
+
   try {
     const { id } = await req.json();
 

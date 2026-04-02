@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { verifySuperAdmin } from '@/lib/auth-server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -7,7 +8,10 @@ const supabase = createClient(
 );
 
 // GET all system settings
-export async function GET() {
+export async function GET(req) {
+  const { authorized, error: authError } = await verifySuperAdmin(req);
+  if (!authorized) return NextResponse.json({ error: authError }, { status: 403 });
+
   try {
     const { data, error } = await supabase
       .from('system_settings')
@@ -31,6 +35,9 @@ export async function GET() {
 
 // POST — upsert one or more settings
 export async function POST(req) {
+  const { authorized, error: authError } = await verifySuperAdmin(req);
+  if (!authorized) return NextResponse.json({ error: authError }, { status: 403 });
+
   try {
     const { settings } = await req.json();
 

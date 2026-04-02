@@ -2,6 +2,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
+import { useRouter } from 'next/navigation'; // [NEW] Added useRouter
+import { supabase } from '@/lib/supabase'; // [NEW] Added supabase
+import { SHIFTS } from '@/lib/shifts';
 import {
     Settings, Building2, Clock, Shield, Calendar, Bell, Palette, Plug,
     Save, Plus, Trash2, Edit3, X, Check, ChevronRight, Globe,
@@ -27,9 +30,18 @@ const TABS = [
 // SETTINGS PAGE
 // ══════════════════════════════════════════
 export default function SettingsPage() {
-    const { addToast, fetchAllData } = useApp();
+    const router = useRouter(); // [NEW] Added router for redirection
+    const { addToast, fetchAllData, currentUser } = useApp();
     const [activeTab, setActiveTab] = useState('general');
     const [settings, setSettings] = useState({});
+
+    // ── Check authorization ──
+    useEffect(() => {
+        if (currentUser && currentUser.role !== 'super_admin') {
+            router.replace('/dashboard/employee'); // Redirect to dashboard if not super admin
+        }
+    }, [currentUser, router]);
+
     const [leaveTypes, setLeaveTypes] = useState([]);
     const [holidays, setHolidays] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -44,10 +56,14 @@ export default function SettingsPage() {
     const fetchAllSettings = async () => {
         setLoading(true);
         try {
+            // Get session for Bearer token [NEW]
+            const { data: { session } } = await supabase.auth.getSession();
+            const headers = { 'Authorization': `Bearer ${session?.access_token}` };
+
             const [settingsRes, leaveRes, holidayRes] = await Promise.all([
-                fetch('/api/settings').then(r => r.json()),
-                fetch('/api/settings/leave-types').then(r => r.json()),
-                fetch('/api/settings/holidays').then(r => r.json()),
+                fetch('/api/settings', { headers }).then(r => r.json()),
+                fetch('/api/settings/leave-types', { headers }).then(r => r.json()),
+                fetch('/api/settings/holidays', { headers }).then(r => r.json()),
             ]);
             if (settingsRes.success) setSettings(settingsRes.settings || {});
             if (leaveRes.success) setLeaveTypes(leaveRes.leaveTypes || []);
@@ -59,6 +75,7 @@ export default function SettingsPage() {
         setLoading(false);
     };
 
+
     // ── Update a setting key locally ──
     const updateSetting = (key, value) => {
         setSettings(prev => ({ ...prev, [key]: value }));
@@ -69,9 +86,15 @@ export default function SettingsPage() {
     const saveSettings = async () => {
         setSaving(true);
         try {
+            // Get session for Bearer token [NEW]
+            const { data: { session } } = await supabase.auth.getSession();
+            
             const res = await fetch('/api/settings', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}` 
+                },
                 body: JSON.stringify({ settings }),
             });
             const data = await res.json();
@@ -88,6 +111,7 @@ export default function SettingsPage() {
         }
         setSaving(false);
     };
+
 
     if (loading) {
         return (
@@ -451,34 +475,26 @@ function AttendanceTab({ settings, updateSetting }) {
             </SettingSection>
 
             <SettingSection icon={Clock} title="Working Hours" description="Default shift timings and weekend configuration" color="#10b981">
-                <FieldRow label="Default Shift Start" description="Standard office start time">
-                    <input
-                        className="form-input"
-                        type="time"
+                <FieldRow label="Default Office Shift" description="Select one of the predefined system shifts">
+                    <select
+                        className="form-select"
                         style={{ maxWidth: 200 }}
-                        value={settings.shift_start || '10:00'}
-                        onChange={e => updateSetting('shift_start', e.target.value)}
-                    />
+                        value={settings.default_shift || 'GS'}
+                        onChange={e => updateSetting('default_shift', e.target.value)}
+                    >
+                        {Object.entries(SHIFTS).map(([key, s]) => (
+                            <option key={key} value={key}>{s.name} ({s.start} - {s.end})</option>
+                        ))}
+                    </select>
                 </FieldRow>
-                <FieldRow label="Default Shift End" description="Standard office end time">
-                    <input
-                        className="form-input"
-                        type="time"
-                        style={{ maxWidth: 200 }}
-                        value={settings.shift_end || '19:00'}
-                        onChange={e => updateSetting('shift_end', e.target.value)}
-                    />
-                </FieldRow>
-                <FieldRow label="Grace Period (minutes)" description="Minutes after shift start before marked late">
-                    <input
-                        className="form-input"
-                        type="number"
-                        style={{ maxWidth: 200 }}
-                        value={settings.grace_period || 15}
-                        onChange={e => updateSetting('grace_period', Number(e.target.value))}
-                        min={0} max={60}
-                    />
-                </FieldRow>
+                <div style={{ padding: '12px 16px', background: 'rgba(16, 185, 129, 0.05)', borderRadius: 8, border: '1px solid rgba(16, 185, 129, 0.1)', marginTop: 8 }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10b981', marginBottom: 6, textTransform: 'uppercase' }}>Shift Rule Summary</div>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                        <strong>Present</strong>: punch-in within 15m grace. <strong>Late</strong>: punch-in 16-60m late (3 lates = 0.5d LOP). 
+                        <strong>Half Day</strong>: punch-in 1-4h late OR total hours 3-6h. <strong>Absent</strong>: No punch OR total hours &lt; 3h.
+                    </p>
+                </div>
+
                 <FieldRow label="Weekend Days" description="Days counted as weekly off">
                     <select
                         className="form-select"
@@ -511,12 +527,19 @@ function LeavePoliciesTab({ leaveTypes, setLeaveTypes, addToast }) {
         if (!newLeave.name.trim()) return addToast('Leave type name is required', 'warning');
         setActionLoading(true);
         try {
+            // Get session for Bearer token [NEW]
+            const { data: { session } } = await supabase.auth.getSession();
+
             const res = await fetch('/api/settings/leave-types', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
                 body: JSON.stringify(newLeave),
             });
             const data = await res.json();
+
             if (data.success) {
                 setLeaveTypes(prev => [...prev, data.leaveType]);
                 setNewLeave({ name: '', yearly_quota: 12, is_active: true });
@@ -532,12 +555,19 @@ function LeavePoliciesTab({ leaveTypes, setLeaveTypes, addToast }) {
     const handleUpdate = async (id) => {
         setActionLoading(true);
         try {
+            // Get session for Bearer token [NEW]
+            const { data: { session } } = await supabase.auth.getSession();
+
             const res = await fetch('/api/settings/leave-types', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
                 body: JSON.stringify({ id, ...editForm }),
             });
             const data = await res.json();
+
             if (data.success) {
                 setLeaveTypes(prev => prev.map(lt => lt.id === id ? { ...lt, ...editForm } : lt));
                 setEditingId(null);
@@ -553,12 +583,19 @@ function LeavePoliciesTab({ leaveTypes, setLeaveTypes, addToast }) {
         if (!confirm('Are you sure you want to delete this leave type?')) return;
         setActionLoading(true);
         try {
+            // Get session for Bearer token [NEW]
+            const { data: { session } } = await supabase.auth.getSession();
+
             const res = await fetch('/api/settings/leave-types', {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
                 body: JSON.stringify({ id }),
             });
             const data = await res.json();
+
             if (data.success) {
                 setLeaveTypes(prev => prev.filter(lt => lt.id !== id));
                 addToast('Leave type deleted', 'success');
@@ -692,9 +729,15 @@ function HolidayCalendarTab({ holidays, setHolidays, addToast }) {
         if (!newHoliday.name.trim() || !newHoliday.date) return addToast('Name and date are required', 'warning');
         setActionLoading(true);
         try {
+            // Get session for Bearer token [NEW]
+            const { data: { session } } = await supabase.auth.getSession();
+
             const res = await fetch('/api/settings/holidays', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
                 body: JSON.stringify(newHoliday),
             });
             const data = await res.json();
@@ -710,12 +753,19 @@ function HolidayCalendarTab({ holidays, setHolidays, addToast }) {
         setActionLoading(false);
     };
 
+
     const handleUpdate = async (id) => {
         setActionLoading(true);
         try {
+            // Get session for Bearer token [NEW]
+            const { data: { session } } = await supabase.auth.getSession();
+
             const res = await fetch('/api/settings/holidays', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
                 body: JSON.stringify({ id, ...editForm }),
             });
             const data = await res.json();
@@ -730,13 +780,20 @@ function HolidayCalendarTab({ holidays, setHolidays, addToast }) {
         setActionLoading(false);
     };
 
+
     const handleDelete = async (id) => {
         if (!confirm('Delete this holiday?')) return;
         setActionLoading(true);
         try {
+            // Get session for Bearer token [NEW]
+            const { data: { session } } = await supabase.auth.getSession();
+
             const res = await fetch('/api/settings/holidays', {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
                 body: JSON.stringify({ id }),
             });
             const data = await res.json();
@@ -749,6 +806,7 @@ function HolidayCalendarTab({ holidays, setHolidays, addToast }) {
         }
         setActionLoading(false);
     };
+
 
     const typeColors = {
         National: '#6366f1', Restricted: '#f59e0b', Optional: '#06b6d4', Company: '#10b981'
