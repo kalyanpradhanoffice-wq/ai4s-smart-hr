@@ -69,10 +69,11 @@ export default function Sidebar({ customRoles }) {
     const pathname = usePathname();
     const { currentUser, logout } = useApp();
 
-    function handleLogout() {
-        logout();
+    async function handleLogout() {
+        await logout();
         router.replace('/login');
     }
+
 
     const userRole = currentUser?.role;
     const isSuperAdmin = userRole === 'super_admin';

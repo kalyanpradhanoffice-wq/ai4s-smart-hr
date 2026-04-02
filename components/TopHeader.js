@@ -62,10 +62,11 @@ export default function TopHeader({ title, customRoles }) {
         document.documentElement.setAttribute('data-theme', theme);
     }
 
-    function handleLogout() {
-        logout();
+    async function handleLogout() {
+        await logout();
         router.replace('/login');
     }
+
 
     function getNotifIcon(type) {
         const icons = { leave: '📅', approval: '✅', payroll: '💰', regularization: '🕐', kudos: '🏆', system: '⚙️' };
