@@ -8,7 +8,7 @@ import { PERMISSIONS } from '@/lib/constants';
 import {
     LayoutDashboard, Users, Clock, Calendar, DollarSign, Target, TrendingUp,
     UserPlus, UserMinus, Shield, Settings, Key, Bell, LogOut, ChevronDown, Search,
-    Wifi, ClipboardList, Award, AlertCircle, FileText, Building, Database, UserCheck, UserCircle,
+    ClipboardList, Award, AlertCircle, FileText, Building, Database, UserCheck, UserCircle,
 } from 'lucide-react';
 
 // Each item can have a single `permission` string OR a `permissions` array (OR logic).
@@ -35,7 +35,7 @@ const NAV_SECTIONS = [
         title: 'Operations',
         items: [
             { label: 'Attendance', icon: Clock, href: '/dashboard/attendance', permissions: [PERMISSIONS.MARK_ATTENDANCE, PERMISSIONS.VIEW_OWN_ATTENDANCE, PERMISSIONS.VIEW_ALL_ATTENDANCE, PERMISSIONS.VIEW_TEAM_ATTENDANCE] },
-            { label: 'Leave Management', icon: Calendar, href: '/dashboard/leaves', permissions: [PERMISSIONS.APPLY_LEAVE, PERMISSIONS.VIEW_OWN_LEAVE_BALANCE, PERMISSIONS.VIEW_ALL_LEAVES, PERMISSIONS.VIEW_TEAM_LEAVES] },
+            { label: 'Attendance Request', icon: ClipboardList, href: '/dashboard/attendance-request', permissions: [PERMISSIONS.MARK_ATTENDANCE, PERMISSIONS.APPLY_LEAVE] },
             { label: 'Approvals', icon: ClipboardList, href: '/dashboard/approvals', permissions: [PERMISSIONS.APPROVE_LEAVE, PERMISSIONS.VIEW_PENDING_APPROVALS, PERMISSIONS.APPROVE_ANY_REQUEST] },
         ],
     },
@@ -57,7 +57,7 @@ const NAV_SECTIONS = [
         title: 'Administration',
         items: [
             { label: 'Role Management', icon: Shield, href: '/dashboard/roles', permissions: [PERMISSIONS.MANAGE_ROLES, PERMISSIONS.VIEW_ROLES] },
-            { label: 'Network Security', icon: Wifi, href: '/dashboard/security', permissions: [PERMISSIONS.MANAGE_NETWORK_SECURITY, PERMISSIONS.VIEW_SECURITY_SETTINGS] },
+
             { label: 'Audit Logs', icon: Database, href: '/dashboard/audit', permission: PERMISSIONS.VIEW_AUDIT_LOGS },
             { label: 'System Settings', icon: Settings, href: '/dashboard/settings', permissions: [PERMISSIONS.MANAGE_SYSTEM_SETTINGS, PERMISSIONS.VIEW_SYSTEM_SETTINGS, PERMISSIONS.MANAGE_APPROVAL_WORKFLOWS] },
         ],
@@ -70,8 +70,8 @@ export default function Sidebar({ customRoles }) {
     const { currentUser, logout } = useApp();
 
     async function handleLogout() {
+        // Trigger the Nuclear Logout from AppContext which handles all clearing and the redirect
         await logout();
-        router.replace('/login');
     }
 
 

@@ -50,11 +50,10 @@ async function seed() {
   console.log('- Initializing security configuration...');
   await supabase.from('security_config').upsert([{
     id: 'global_config',
-    wifi_restriction_enabled: false,
-    allowed_networks: ['Office-Main', 'Office-Guest'],
-    allowed_ips: ['1.2.3.4/32'],
-    exempt_roles: ['super_admin', 'core_admin'],
-    popup_message: 'Restricted Access: Please connect to the office network.'
+    geofencing_enabled: true,
+    office_lat: 22.4866,
+    office_lng: 88.3169,
+    office_radius: 100
   }]);
 
   console.log('✅ Seeding complete!');

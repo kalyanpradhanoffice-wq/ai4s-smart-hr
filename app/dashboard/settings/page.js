@@ -8,8 +8,8 @@ import { SHIFTS } from '@/lib/shifts';
 import {
     Settings, Building2, Clock, Shield, Calendar, Bell, Palette, Plug,
     Save, Plus, Trash2, Edit3, X, Check, ChevronRight, Globe,
-    Lock, Wifi, AlertTriangle, RefreshCw, Sun, Moon, Loader2,
-    CalendarDays, CalendarClock, DollarSign, Users, Info
+    Lock, AlertTriangle, RefreshCw, Sun, Moon, Loader2,
+    CalendarDays, CalendarClock, DollarSign, Users, Info, MapPin, Crosshair
 } from 'lucide-react';
 
 // ══════════════════════════════════════════
@@ -31,7 +31,7 @@ const TABS = [
 // ══════════════════════════════════════════
 export default function SettingsPage() {
     const router = useRouter(); // [NEW] Added router for redirection
-    const { addToast, fetchAllData, currentUser } = useApp();
+    const { addToast, fetchAllData, currentUser, securityConfig, updateSecurityConfig } = useApp();
     const [activeTab, setActiveTab] = useState('general');
     const [settings, setSettings] = useState({});
 
@@ -197,7 +197,7 @@ export default function SettingsPage() {
                         {activeTab === 'attendance' && <AttendanceTab settings={settings} updateSetting={updateSetting} />}
                         {activeTab === 'leaves' && <LeavePoliciesTab leaveTypes={leaveTypes} setLeaveTypes={setLeaveTypes} addToast={addToast} />}
                         {activeTab === 'holidays' && <HolidayCalendarTab holidays={holidays} setHolidays={setHolidays} addToast={addToast} />}
-                        {activeTab === 'security' && <SecurityTab settings={settings} updateSetting={updateSetting} />}
+                        {activeTab === 'security' && <SecurityTab settings={settings} updateSetting={updateSetting} securityConfig={securityConfig} updateSecurityConfig={updateSecurityConfig} />}
                         {activeTab === 'notifications' && <NotificationsTab settings={settings} updateSetting={updateSetting} />}
                         {activeTab === 'appearance' && <AppearanceTab settings={settings} updateSetting={updateSetting} />}
                         {activeTab === 'integrations' && <IntegrationsTab />}
@@ -943,7 +943,22 @@ function HolidayCalendarTab({ holidays, setHolidays, addToast }) {
 // ══════════════════════════════════════════
 // TAB 5: SECURITY
 // ══════════════════════════════════════════
-function SecurityTab({ settings, updateSetting }) {
+function SecurityTab({ settings, updateSetting, securityConfig, updateSecurityConfig }) {
+    const [localConfig, setLocalConfig] = useState(securityConfig || {});
+
+    // Sync local state when securityConfig changes
+    useEffect(() => {
+        if (securityConfig) setLocalConfig(securityConfig);
+    }, [securityConfig]);
+
+    const handleLocalUpdate = (key, value) => {
+        setLocalConfig(prev => ({ ...prev, [key]: value }));
+    };
+
+    const saveGeofence = () => {
+        updateSecurityConfig(localConfig);
+    };
+
     return (
         <>
             <SettingSection icon={Lock} title="Authentication" description="Control login behavior and security policies" color="#ef4444">
@@ -971,26 +986,93 @@ function SecurityTab({ settings, updateSetting }) {
                 </FieldRow>
             </SettingSection>
 
-            <SettingSection icon={Wifi} title="Network & IP Security" description="IP whitelisting is managed from the dedicated Security page" color="#0ea5e9">
+            <SettingSection icon={MapPin} title="Geofencing Guard" description="Enforce location-based attendance and access" color="#f59e0b">
                 <div style={{
-                    background: 'rgba(14, 165, 233, 0.06)', borderRadius: 'var(--radius-md)',
-                    border: '1px solid rgba(14, 165, 233, 0.15)', padding: 'var(--space-lg)',
-                    display: 'flex', alignItems: 'center', gap: 12
+                    background: 'rgba(245, 158, 11, 0.06)', borderRadius: 'var(--radius-md)',
+                    border: '1px solid rgba(245, 158, 11, 0.15)', padding: 'var(--space-md)',
+                    marginBottom: 'var(--space-lg)', display: 'flex', alignItems: 'flex-start', gap: 10
                 }}>
-                    <Shield size={20} color="#0ea5e9" />
-                    <div>
-                        <p style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                            IP Whitelisting & Network Restrictions
-                        </p>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                            Manage allowed IP addresses, network prefixes, and role-based exemptions from the
-                            <a href="/dashboard/security" style={{ color: 'var(--brand-primary)', fontWeight: 600, marginLeft: 4 }}>
-                                Network Security
-                            </a> page.
-                        </p>
+                    <Shield size={16} color="#f59e0b" style={{ marginTop: 2, flexShrink: 0 }} />
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                        Geofencing ensures that employees can only mark attendance when they are physically present at the office location. 
+                        <strong> Global override</strong>: Super Admins are exempt from geofencing restrictions.
+                    </p>
+                </div>
+
+                <FieldRow label="Geofencing Protection" description="Enable or disable mandatory location verification">
+                    <Toggle
+                        checked={localConfig.geofencingEnabled}
+                        onChange={val => handleLocalUpdate('geofencingEnabled', val)}
+                    />
+                </FieldRow>
+
+                <FieldRow label="Office Location Name" description="Human-readable name for the office area">
+                    <input
+                        className="form-input"
+                        style={{ maxWidth: 280 }}
+                        value={localConfig.officeLocationName || ''}
+                        onChange={e => handleLocalUpdate('officeLocationName', e.target.value)}
+                        placeholder="e.g. Headquarters"
+                    />
+                </FieldRow>
+
+                <FieldRow label="GPS Coordinates" description="Latitude and Longitude of the office center">
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ position: 'relative', flex: 1 }}>
+                            <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)' }}>LAT</span>
+                            <input
+                                className="form-input" type="number" step="any"
+                                style={{ paddingLeft: 34, fontSize: '0.8rem' }}
+                                value={localConfig.officeLat || ''}
+                                onChange={e => handleLocalUpdate('officeLat', parseFloat(e.target.value))}
+                            />
+                        </div>
+                        <div style={{ position: 'relative', flex: 1 }}>
+                            <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)' }}>LNG</span>
+                            <input
+                                className="form-input" type="number" step="any"
+                                style={{ paddingLeft: 34, fontSize: '0.8rem' }}
+                                value={localConfig.officeLng || ''}
+                                onChange={e => handleLocalUpdate('officeLng', parseFloat(e.target.value))}
+                            />
+                        </div>
                     </div>
+                </FieldRow>
+
+                <FieldRow label="Geofence Radius" description="Allowed distance from center (in meters)">
+                    <div style={{ position: 'relative', maxWidth: 120 }}>
+                        <Crosshair size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input
+                            className="form-input" type="number"
+                            style={{ paddingLeft: 32 }}
+                            value={localConfig.officeRadius || ''}
+                            onChange={e => handleLocalUpdate('officeRadius', parseInt(e.target.value))}
+                            min={10} max={5000}
+                        />
+                    </div>
+                </FieldRow>
+
+                <FieldRow label="Restriction Message" description="Message shown when user is outside the fence">
+                    <textarea
+                        className="form-input"
+                        style={{ height: 80, resize: 'none', fontSize: '0.85rem' }}
+                        value={localConfig.geofenceMessage || ''}
+                        onChange={e => handleLocalUpdate('geofenceMessage', e.target.value)}
+                    />
+                </FieldRow>
+
+                <div style={{ marginTop: 'var(--space-lg)', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button 
+                        className="btn btn-primary" 
+                        onClick={saveGeofence}
+                        style={{ background: 'var(--brand-warning)', borderColor: 'var(--brand-warning-dark)' }}
+                    >
+                        <Save size={14} style={{ marginRight: 8 }} /> Update Geofencing Guard
+                    </button>
                 </div>
             </SettingSection>
+
+
         </>
     );
 }

@@ -420,20 +420,6 @@ function PayrollContent() {
                         )}
                     </button>
                 )}
-                {canRunPayroll && (
-                    <button
-                        className={`tab-btn ${activeTab === 'upgrades' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('upgrades')}
-                    >
-                        <TrendingUp size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-                        Salary Upgrades
-                        {salaryUpgrades.filter(su => su.status === 'pending').length > 0 && (
-                            <span className="notification-badge" style={{ position: 'static', marginLeft: 6 }}>
-                                {salaryUpgrades.filter(su => su.status === 'pending').length}
-                            </span>
-                        )}
-                    </button>
-                )}
             </div>
 
             {/* ── TAB CONTENT: PAYSLIP ── */}
@@ -699,66 +685,6 @@ function PayrollContent() {
                 </div>
             )}
 
-            {/* ── TAB CONTENT: UPGRADES ── */}
-            {activeTab === 'upgrades' && (
-                <div className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <div>
-                            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Salary Upgrade Approvals</h3>
-                            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                                Manage incoming salary progression and promotion requests
-                            </p>
-                        </div>
-                    </div>
-                    <div className="table-wrapper">
-                        <table className="data-table">
-                            <thead><tr><th>Employee</th><th>Proposed Salary</th><th>Current Level</th><th>Actions</th></tr></thead>
-                            <tbody>
-                                {salaryUpgrades.map(su => {
-                                    const emp = users.find(u => u.id === su.employeeId);
-                                    const isL1 = su.currentLevel === 1 && su.level1_approver_id === currentUser.id;
-                                    const isL2 = su.currentLevel === 2 && su.level2_approver_id === currentUser.id;
-                                    const isSuper = currentUser.role === 'super_admin';
-                                    const totalLevels = su.level2_approver_id ? 2 : 1;
-                                    const alreadyActed = (su.approvals || []).some(a => a.approverId === currentUser.id);
-
-                                    const canAct = (isL1 || isL2 || isSuper) && !alreadyActed;
-
-                                    return (
-                                        <tr key={su.id}>
-                                            <td style={{ fontWeight: 600 }}>{emp?.name} ({emp?.displayId})</td>
-                                            <td style={{ fontWeight: 700, color: 'var(--brand-primary-light)' }}>₹{Number(su.proposedSalary).toLocaleString()}</td>
-                                            <td>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                    <span className="badge badge-neutral" style={{ width: 'fit-content' }}>L{su.currentLevel}</span>
-                                                    <span className="badge badge-neutral" style={{ background: su.status === 'approved' ? '#34d39920' : su.status === 'rejected' ? '#f8717120' : '#f59e0b20', color: su.status === 'approved' ? '#34d399' : su.status === 'rejected' ? '#f87171' : '#f59e0b', fontSize: '0.65rem' }}>{su.status}</span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                {su.status === 'pending' ? (
-                                                    canAct ? (
-                                                        <div style={{ display: 'flex', gap: 6 }}>
-                                                            <button className="btn btn-success btn-sm" onClick={() => approveSalaryUpgrade(su.id, currentUser.id, 'Approved', su.currentLevel, totalLevels)}>Approve</button>
-                                                            <button className="btn btn-danger btn-sm" onClick={() => addToast('Rejection logic pending', 'info')}>Reject</button>
-                                                        </div>
-                                                    ) : alreadyActed ? (
-                                                        <span style={{ fontSize: '0.72rem', color: 'var(--brand-primary-light)', fontWeight: 600 }}>✓ Action Taken</span>
-                                                    ) : (
-                                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Waiting for Approval</span>
-                                                    )
-                                                ) : <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>No Action Needed</span>}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                                {salaryUpgrades.length === 0 && (
-                                    <tr><td colSpan={4} style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>No salary upgrade records found.</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

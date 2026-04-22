@@ -3,21 +3,22 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { can } from '@/lib/rbac';
+import { can, isLocationRestricted } from '@/lib/rbac';
 import { PERMISSIONS } from '@/lib/constants';
-import { Clock, MapPin, CheckCircle, AlertCircle, Plus, Edit, Shield, History, Info, Calendar, Users, Search, BarChart2, Table, Download } from 'lucide-react';
+import { Clock, MapPin, CheckCircle, AlertCircle, Plus, Edit, Shield, History, Info, Calendar, Users, Search, BarChart2, Table, Download, Navigation } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const STATUS_COLORS = {
     present: '#10b981', absent: '#ef4444', leave: '#06b6d4',
     wfh: '#8b5cf6', 'half-day': '#f59e0b', 'weekly-off': '#6366f1',
-    wo: '#6366f1', holiday: '#94a3b8', late: '#f59e0b', 'early-exit': '#f59e0b'
+    wo: '#6366f1', holiday: '#94a3b8', late: '#f59e0b', 'early-exit': '#f59e0b',
+    'missing_punch': '#fb923c'
 };
 
 
 const STATUS_LABEL = {
     present: 'P', absent: 'A', leave: 'L', wfh: 'WFH', 'half-day': 'HD', 'weekly-off': 'WO',
-    wo: 'WO', holiday: 'HOL', late: 'L', 'early-exit': 'EO'
+    wo: 'WO', holiday: 'HOL', late: 'L', 'early-exit': 'EO', 'missing_punch': 'MP'
 };
 
 
@@ -47,7 +48,7 @@ function AttendanceContent() {
         currentUser, users, attendance, regularizations,
         requestRegularization, approveRegularization, rejectRegularization,
         markAttendance, hrCorrectAttendance, leaveBalances, leaveRequests,
-        getAttendanceStatus, systemSettings, companyHolidays
+        getAttendanceStatus, securityConfig, systemSettings, companyHolidays
     } = useApp();
 
     const searchParams = useSearchParams();
@@ -65,6 +66,7 @@ function AttendanceContent() {
     const [isPunching, setIsPunching] = useState(false);
     const [showCamera, setShowCamera] = useState(false);
     const [cameraAction, setCameraAction] = useState('in');
+    const [detectedCoords, setDetectedCoords] = useState(null); // { lat, lng }
     const [selectedCalDate, setSelectedCalDate] = useState(null);
     const [showHRModal, setShowHRModal] = useState(false);
     const [hrForm, setHRForm] = useState({ userId: '', date: '', status: 'present', punchIn: '', punchOut: '', leaveType: 'CL', halfDayType: '', location: 'office' });
@@ -100,10 +102,11 @@ function AttendanceContent() {
     const wfhDays = thisMonthDays.filter(date => getAttendanceStatus(currentUser?.id, date) === 'wfh').length;
     const holidayDays = thisMonthDays.filter(date => getAttendanceStatus(currentUser?.id, date) === 'holiday').length;
     const woDays = thisMonthDays.filter(date => getAttendanceStatus(currentUser?.id, date) === 'wo').length;
+    const missingPunchDays = thisMonthDays.filter(date => getAttendanceStatus(currentUser?.id, date) === 'missing_punch').length;
     const halfDayDays = thisMonth.filter(a => a.status === 'half-day').length;
 
-    // Absent = Total Days so far - (Present + Leave + WFH + Holiday + WO + HalfDays)
-    const absentDays = Math.max(0, thisMonthDays.length - presentDays - leaveDays - wfhDays - holidayDays - woDays - halfDayDays);
+    // Absent = Total Days so far - (Present + Leave + WFH + Holiday + WO + HalfDays + MissingPunches)
+    const absentDays = Math.max(0, thisMonthDays.length - presentDays - leaveDays - wfhDays - holidayDays - woDays - halfDayDays - missingPunchDays);
     const myLeaveBalance = leaveBalances?.find(b => b.userId === currentUser?.id);
 
     const last14 = Array.from({ length: 14 }, (_, i) => {
@@ -117,19 +120,78 @@ function AttendanceContent() {
         return false;
     });
 
-    async function handlePunchIn() { if (isPunching) return; setCameraAction('in'); setShowCamera(true); }
-    async function handlePunchOut() { if (isPunching || !todayRecord) return; setCameraAction('out'); setShowCamera(true); }
+    const [isCameraReady, setIsCameraReady] = useState(false);
+
+    async function handlePunchIn() { if (isPunching) return; setIsCameraReady(false); setCameraAction('in'); setShowCamera(true); }
+    async function handlePunchOut() { if (isPunching || !todayRecord) return; setIsCameraReady(false); setCameraAction('out'); setShowCamera(true); }
 
     async function finalizePunch() {
-        if (isPunching) return;
+        if (isPunching || !isCameraReady) return;
         setIsPunching(true);
+        
         const now = new Date();
         const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        let locationVerified = false;
+        
         try {
-            if (cameraAction === 'in') { await markAttendance(currentUser.id, today, 'in', timeStr, 'office', true); setPunchStatus('in'); }
-            else { await markAttendance(currentUser.id, today, 'out', timeStr, null, true); setPunchStatus('out-done'); }
+            // --- MANDATORY GEOFENCING CHECK ---
+            const isGeofenceRequired = securityConfig?.geofencingEnabled || currentUser.role === 'employee';
+            
+            if (isGeofenceRequired) {
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { 
+                            enableHighAccuracy: true,
+                            timeout: 8000,
+                            maximumAge: 0
+                        });
+                    });
+
+                    const userCoords = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    setDetectedCoords(userCoords);
+
+                    const restricted = isLocationRestricted(currentUser, securityConfig, userCoords);
+                    
+                    if (restricted) {
+                        alert(securityConfig.geofenceMessage || 'Attendance Restricted: You must be within the office premises to punch in or out.');
+                        setShowCamera(false);
+                        setIsPunching(false);
+                        return;
+                    }
+                    
+                    locationVerified = true; // Set flag for DB
+                } catch (geoErr) {
+                    console.error('Geolocation failed:', geoErr);
+                    let msg = 'Location Access Required: Please allow location permissions in your browser to punch in or out.';
+                    if (geoErr.code === 1) msg = 'Location Permission Denied: You must enable location access to mark attendance.';
+                    else if (geoErr.code === 3) msg = 'Location Timeout: Could not determine your location. Please try again or move to an open area.';
+                    
+                    alert(msg);
+                    setShowCamera(false);
+                    setIsPunching(false);
+                    return;
+                }
+            } else {
+                // If geofencing is OFF, we still allow the punch but locationVerified is false
+                locationVerified = false;
+            }
+
+            // --- FINAL PUNCH EXECUTION ---
+            if (cameraAction === 'in') { 
+                await markAttendance(currentUser.id, today, 'in', timeStr, 'office', true, locationVerified); 
+                setPunchStatus('in'); 
+            } else { 
+                await markAttendance(currentUser.id, today, 'out', timeStr, null, true, locationVerified); 
+                setPunchStatus('out-done'); 
+            }
             setShowCamera(false);
-        } finally { setIsPunching(false); }
+        } finally { 
+            setIsPunching(false); 
+        }
     }
 
     async function handleRegularization(e) {
@@ -198,10 +260,6 @@ function AttendanceContent() {
                         <Users size={13} style={{ marginRight: 5 }} />Team Attendance
                     </button>
                 )}
-                <button className={`tab-btn ${activeTab === 'regs' ? 'active' : ''}`} onClick={() => setActiveTab('regs')}>
-                    <Edit size={13} style={{ marginRight: 5 }} />Correction Requests
-                    {pendingRegularizations.length > 0 && <span className="notification-badge" style={{ position: 'static', marginLeft: 4 }}>{pendingRegularizations.length}</span>}
-                </button>
                 {isAdminView && (
                     <button className={`tab-btn ${activeTab === 'grid-status' ? 'active' : ''}`} onClick={() => setActiveTab('grid-status')}>
                         <BarChart2 size={13} style={{ marginRight: 5 }} />Attendance History By Status
@@ -218,13 +276,14 @@ function AttendanceContent() {
             {activeTab === 'my' && (
                 <>
                     {/* Stats */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 'var(--space-md)', marginBottom: 28 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 'var(--space-md)', marginBottom: 28 }}>
                         {[
                             { label: 'Present (Month)', value: presentDays, color: '#10b981' },
                             { label: 'Absent (Month)', value: absentDays, color: '#ef4444' },
+                            { label: 'Missing Punch', value: missingPunchDays, color: '#fb923c' },
                             { label: 'Leave (Month)', value: leaveDays, color: '#06b6d4' },
                             { label: 'WFH (Month)', value: wfhDays, color: '#8b5cf6' },
-                            { label: 'Weekly Off (Month)', value: woDays, color: '#6366f1' },
+                            { label: 'Weekly Off', value: woDays, color: '#6366f1' },
                             { label: 'Holiday (Month)', value: holidayDays, color: '#94a3b8' },
                         ].map(s => (
                             <div key={s.label} className="stat-card" style={{ padding: '16px 12px' }}>
@@ -267,7 +326,7 @@ function AttendanceContent() {
                                     <button className="btn btn-success w-full" style={{ justifyContent: 'center', fontSize: '1rem', padding: '14px' }} onClick={handlePunchIn} disabled={isPunching}><Clock size={18} /> {isPunching ? 'Processing...' : 'Punch In'}</button>
                                 );
                             })()}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginTop: 14, fontSize: '0.75rem', color: 'var(--text-muted)' }}><MapPin size={13} /> IP-verified office location</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginTop: 14, fontSize: '0.75rem', color: 'var(--text-muted)' }}><MapPin size={13} /> Location-verified punch</div>
                         </div>
 
                         {/* Last 14 Days */}
@@ -327,20 +386,7 @@ function AttendanceContent() {
                         </div>
                     </div>
 
-                    {/* Leave Balances */}
-                    {myLeaveBalance && (
-                        <div className="card" style={{ marginBottom: 24 }}>
-                            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 16 }}>Leave Balances</h3>
-                            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                                {['CL', 'EL', 'SL'].map(lt => (
-                                    <div key={lt} style={{ padding: '12px 20px', borderRadius: 'var(--radius-md)', background: 'var(--bg-glass)', border: '1px solid var(--border-subtle)', textAlign: 'center', minWidth: 80 }}>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--brand-primary-light)' }}>{myLeaveBalance[lt] ?? 0}</div>
-                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>{lt}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+
 
                     {/* My Attendance Log */}
                     <div className="card" style={{ padding: 0 }}>
@@ -479,84 +525,6 @@ function AttendanceContent() {
                 </div>
             )}
 
-            {/* ── CORRECTION REQUESTS TAB ── */}
-            {activeTab === 'regs' && (
-                <div className="card" style={{ padding: 0 }}>
-                    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
-                        <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Attendance Correction Requests</h3>
-                    </div>
-                    <div className="table-wrapper" style={{ boxShadow: 'none', border: 'none' }}>
-                        <table className="data-table">
-                            <thead><tr><th>Employee</th><th>Date</th><th>Correction Type</th><th>Existing In</th><th>Existing Out</th><th>Proposed In</th><th>Proposed Out</th><th>Reason</th><th>Status</th>{canManageAttendance && <th style={{ textAlign: 'right' }}>Actions</th>}</tr></thead>
-                            <tbody>
-                                {regularizations.filter(r => {
-                                    if (canViewAll) return true;
-                                    if (isManager) return teamUserIds.includes(r.employeeId);
-                                    return r.employeeId === currentUser?.id;
-                                }).map(r => {
-                                    const emp = users.find(u => u.id === r.employeeId);
-                                    const existing = attendance.find(a => (a.userId === r.employeeId) && a.date === r.date);
-                                    return (
-                                        <tr key={r.id}>
-                                            <td>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    <div className="avatar avatar-sm">{emp?.avatar}</div>
-                                                    <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{emp?.name || emp?.displayId || r.employeeId}</div>
-                                                </div>
-                                            </td>
-                                            <td style={{ fontSize: '0.85rem' }}>{r.date}</td>
-                                            <td><span className="badge badge-primary" style={{ fontSize: '0.68rem', textTransform: 'capitalize' }}>{r.correctionType?.replace(/_/g, ' ') || 'Missing Punch'}</span></td>
-                                            <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{existing?.punchIn || '—'}</td>
-                                            <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{existing?.punchOut || '—'}</td>
-                                            <td style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--brand-primary-light)' }}>{r.punchIn || '—'}</td>
-                                            <td style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--brand-primary-light)' }}>{r.punchOut || '—'}</td>
-                                            <td style={{ fontSize: '0.8rem', maxWidth: 200 }}>{r.reason}</td>
-                                            <td>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                    <span className={`status-pill status-${r.status}`}>{r.status}</span>
-                                                    {r.status === 'pending' && (
-                                                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                                                            {r.current_level === 2 ? `Awaiting ${users.find(u => u.id === r.level2_approver_id)?.name || 'Functional Manager'}'s Approval` : `Awaiting ${users.find(u => u.id === r.level1_approver_id)?.name || 'Reporting Manager'}'s Approval`}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            {canManageAttendance && (
-                                                <td>
-                                                    {r.status === 'pending' ? (() => {
-                                                        const isL1 = r.current_level === 1 && r.level1_approver_id === currentUser.id;
-                                                        const isL2 = r.current_level === 2 && r.level2_approver_id === currentUser.id;
-                                                        const isSuper = currentUser.role === 'super_admin' || currentUser.role === 'hr_admin';
-                                                        const totalLevels = r.level2_approver_id ? 2 : 1;
-                                                        const alreadyActed = (r.approvals || []).some(a => a.approvedBy === currentUser.id);
-
-                                                        if (isL1 || isL2 || isSuper) return (
-                                                            <div style={{ display: 'flex', gap: 6 }}>
-                                                                {alreadyActed ? (
-                                                                    <span style={{ fontSize: '0.72rem', color: 'var(--brand-primary-light)', fontWeight: 600 }}>✓ Action Taken</span>
-                                                                ) : (
-                                                                    <>
-                                                                        <button className="btn btn-primary btn-sm" style={{ padding: '4px 8px', fontSize: '0.7rem' }} onClick={() => approveRegularization(r.id, currentUser.id, 'Approved', r.current_level, totalLevels)}>Approve</button>
-                                                                        <button className="btn btn-danger btn-sm" style={{ padding: '4px 8px', fontSize: '0.7rem' }} onClick={() => rejectRegularization(r.id, currentUser.id, 'Rejected')}>Reject</button>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                        return <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Waiting for {r.current_level === 2 ? users.find(u => u.id === r.level2_approver_id)?.name : users.find(u => u.id === r.level1_approver_id)?.name}</span>;
-                                                    })() : <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>No actions</span>}
-                                                </td>
-                                            )}
-                                        </tr>
-                                    );
-                                })}
-                                {regularizations.filter(r => canViewAll ? true : isManager ? teamUserIds.includes(r.employeeId) : r.employeeId === currentUser?.id).length === 0 && (
-                                    <tr><td colSpan={10} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No correction requests found.</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
 
             {/* ── ADMIN GRID TABS ── */}
             {(activeTab === 'grid-status' || activeTab === 'grid-punches') && isAdminView && (
@@ -566,6 +534,7 @@ function AttendanceContent() {
                     users={users}
                     leaveRequests={leaveRequests}
                     getAttendanceStatus={getAttendanceStatus}
+                    securityConfig={securityConfig}
                     systemSettings={systemSettings}
                     companyHolidays={companyHolidays}
                 />
@@ -739,18 +708,47 @@ function AttendanceContent() {
                 </div>
             )}
 
-            {/* Camera Modal */}
+            {/* Camera Overlay */}
             {showCamera && (
-                <div className="modal-overlay">
-                    <div className="modal-box" style={{ maxWidth: 400, textAlign: 'center' }}>
-                        <h3 style={{ marginBottom: 16 }}>Attendance Verification</h3>
-                        <div style={{ background: '#000', borderRadius: 'var(--radius-md)', overflow: 'hidden', aspectRatio: '4/3', marginBottom: 20, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <CameraPreview />
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                    <div className="card" style={{ width: '100%', maxWidth: 450, padding: 0, overflow: 'hidden', border: '1px solid var(--border-subtle)', background: '#161625' }}>
+                        <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: '#fff' }}>Verification Required</h3>
+                            <button onClick={() => setShowCamera(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}><Plus size={20} style={{ transform: 'rotate(45deg)' }} /></button>
                         </div>
-                        <div className="alert alert-info" style={{ marginBottom: 20, fontSize: '0.8rem' }}><Shield size={14} /> Please face the camera to verify your identity for <strong>Punch {cameraAction === 'in' ? 'In' : 'Out'}</strong>.</div>
-                        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                            <button className="btn btn-ghost" onClick={() => setShowCamera(false)} disabled={isPunching}>Cancel</button>
-                            <button className="btn btn-primary" onClick={finalizePunch} disabled={isPunching}>{isPunching ? 'Verifying...' : 'Capture & Punch'}</button>
+                        
+                        <div style={{ position: 'relative', aspectRatio: '4/3', background: '#000' }}>
+                            <CameraPreview onReady={() => setIsCameraReady(true)} />
+                            {!isCameraReady && (
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', gap: 12 }}>
+                                    <div className="spinner-sm" style={{ borderTopColor: 'var(--brand-primary-light)' }}></div>
+                                    <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>Starting camera...</div>
+                                </div>
+                            )}
+                            <div style={{ position: 'absolute', top: 12, right: 12, padding: '4px 10px', borderRadius: 20, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: 6, backdropFilter: 'blur(4px)' }}>
+                                <Shield size={12} style={{ color: '#10b981' }} /> Live Secure Feed
+                            </div>
+                        </div>
+
+                        <div style={{ padding: '24px' }}>
+                            <div style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', marginBottom: 20, fontSize: '0.78rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>
+                                <Info size={14} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle', color: 'var(--brand-primary-light)' }} />
+                                Your photo and GPS location will be verified to complete the {cameraAction === 'in' ? 'Punch In' : 'Punch Out'} request.
+                                {detectedCoords && (
+                                    <div style={{ marginTop: 8, padding: '6px 10px', background: 'rgba(99,102,241,0.1)', borderRadius: 6, color: 'var(--brand-primary-light)', fontWeight: 600, fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <Navigation size={12} /> Detected: {detectedCoords.lat.toFixed(6)}, {detectedCoords.lng.toFixed(6)}
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <button 
+                                className={`btn w-full ${isCameraReady ? 'btn-primary' : 'btn-disabled'}`}
+                                style={{ height: 48, fontSize: '0.95rem', fontWeight: 600, justifyContent: 'center', background: isCameraReady ? 'var(--brand-primary)' : 'rgba(255,255,255,0.05)' }} 
+                                onClick={finalizePunch} 
+                                disabled={isPunching || !isCameraReady}
+                            >
+                                {isPunching ? 'Verifying Location...' : 'Capture & Punch'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -759,24 +757,35 @@ function AttendanceContent() {
     );
 }
 
-function CameraPreview() {
+function CameraPreview({ onReady }) {
     const videoRef = useRef(null);
     useEffect(() => {
         let stream = null;
         async function start() {
-            try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } }); if (videoRef.current) videoRef.current.srcObject = stream; }
-            catch (err) { console.error('Camera access denied', err); }
+            try { 
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } }); 
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    videoRef.current.onloadedmetadata = () => {
+                        if (onReady) onReady();
+                    };
+                }
+            }
+            catch (err) { 
+                console.error('Camera access denied', err); 
+                alert('Camera Access Required: Please allow camera permissions to mark attendance.');
+            }
         }
         start();
         return () => { if (stream) stream.getTracks().forEach(t => t.stop()); };
-    }, []);
+    }, [onReady]);
     return <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
 }
 
 // ──────────────────────────────────────────────────────────────
 // ADMIN GRID – Attendance History By Status / By Punches
 // ──────────────────────────────────────────────────────────────
-function AttendanceGridAdmin({ mode, attendance, users, leaveRequests, getAttendanceStatus, systemSettings, companyHolidays }) {
+function AttendanceGridAdmin({ mode, attendance, users, leaveRequests, getAttendanceStatus, securityConfig, systemSettings, companyHolidays }) {
     const now = new Date();
     const [filterMonth, setFilterMonth] = useState(now.getMonth()); // 0-indexed
     const [filterYear, setFilterYear] = useState(now.getFullYear());
@@ -948,26 +957,54 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests, getAttend
                 </div>
             </div>
 
-            {/* Legend */}
-            <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                {mode === 'status' ? (
-                    Object.entries(STATUS_COLORS).map(([s, c]) => (
-                        <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                            <div style={{ width: 20, height: 20, borderRadius: 4, background: `${c}22`, border: `1px solid ${c}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 700, color: c }}>{STATUS_LABEL[s]}</div>
-                            {s}
+            {/* Legend Section */}
+            <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-card-alt)' }}>
+                <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', 
+                    gap: '12px 8px',
+                    alignItems: 'center'
+                }}>
+                    {[
+                        { l: 'P', n: 'Present', c: STATUS_COLORS.present },
+                        { l: 'A', n: 'Absent', c: STATUS_COLORS.absent },
+                        { l: 'L', n: 'Leave', c: STATUS_COLORS.leave },
+                        { l: 'WFH', n: 'WFH', c: STATUS_COLORS.wfh },
+                        { l: 'HD', n: 'Half Day', c: STATUS_COLORS['half-day'] },
+                        { l: 'WO', n: 'Weekly Off', c: STATUS_COLORS.wo },
+                        { l: 'HOL', n: 'Holiday', c: STATUS_COLORS.holiday },
+                        { l: 'L', n: 'Late', c: STATUS_COLORS.late },
+                        { l: 'EO', n: 'Early Out', c: STATUS_COLORS['early-exit'] },
+                        { l: 'MP', n: 'Missing Punch', c: STATUS_COLORS.missing_punch },
+                        { l: '', n: 'Weekend', c: '#ef4444', isBox: true },
+                        { l: '', n: 'Holiday (S)', c: '#94a3b8', isBox: true }
+                    ].map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                            <div style={{ 
+                                width: 22, 
+                                height: 20, 
+                                borderRadius: 4, 
+                                background: item.isBox ? `${item.c}20` : `${item.c}22`, 
+                                border: `1px solid ${item.c}${item.isBox ? '40' : '60'}`, 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                fontSize: '0.62rem', 
+                                fontWeight: 800, 
+                                color: item.c,
+                                flexShrink: 0
+                            }}>
+                                {item.l}
+                            </div>
+                            <span style={{ fontWeight: 500 }}>{item.n}</span>
                         </div>
-                    ))
-                ) : (
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Showing actual Punch In / Punch Out times. Weekends & Holidays are highlighted.</span>
-                )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        <div style={{ width: 20, height: 20, borderRadius: 4, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)' }} />Weekend
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        <div style={{ width: 20, height: 20, borderRadius: 4, background: 'rgba(148,163,184,0.15)', border: '1px solid rgba(148,163,184,0.3)' }} />Holiday
-                    </div>
+                    ))}
                 </div>
+                {mode === 'punches' && (
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed var(--border-subtle)', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        Showing actual Punch In / Punch Out times. Weekends & Holidays are highlighted in the background.
+                    </div>
+                )}
             </div>
 
             {/* Scrollable Grid */}
@@ -1026,7 +1063,7 @@ function AttendanceGridAdmin({ mode, attendance, users, leaveRequests, getAttend
                                             {(punchIn || punchOut) ? (
                                                 <div
                                                     title={`In: ${punchIn || '—'}  |  Out: ${punchOut || '—'}`}
-                                                    style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: 26, height: 22, borderRadius: 4, background: `${STATUS_COLORS['present']}20`, border: `1px solid ${STATUS_COLORS['present']}50`, cursor: 'default', gap: 0, userSelect: 'none' }}
+                                                    style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: 26, height: 22, borderRadius: 4, background: `${color}20`, border: `1px solid ${color}50`, cursor: 'default', gap: 0, userSelect: 'none' }}
                                                 >
                                                     <span style={{ color: '#10b981', fontSize: '0.45rem', lineHeight: 1.1, fontWeight: 700 }}>{punchIn ? punchIn.slice(0,5) : '–'}</span>
                                                     <span style={{ color: '#f43f5e', fontSize: '0.45rem', lineHeight: 1.1, fontWeight: 700 }}>{punchOut ? punchOut.slice(0,5) : '–'}</span>

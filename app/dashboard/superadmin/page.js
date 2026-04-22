@@ -3,7 +3,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useApp } from '@/lib/AppContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Shield, Users, Activity, Settings, TrendingUp, AlertCircle, CheckCircle, Clock, Database, Key, Wifi, Globe, Cake } from 'lucide-react';
+import { Shield, Users, Activity, Settings, TrendingUp, AlertCircle, CheckCircle, Clock, Database, Key, Globe, Cake } from 'lucide-react';
 import BirthdayTile from '@/components/BirthdayTile';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
@@ -15,7 +15,7 @@ const monthlyGrowth = [
 
 function SuperAdminContent() {
     const router = useRouter();
-    const { currentUser, users, auditLog, notifications, leaveRequests, securityConfig } = useApp();
+    const { currentUser, users, auditLog, notifications, leaveRequests } = useApp();
 
     useEffect(() => {
         if (currentUser && currentUser.role !== 'super_admin') router.replace('/dashboard/employee');
@@ -76,7 +76,7 @@ function SuperAdminContent() {
                 </div>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                     <button className="btn btn-sm" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' }} onClick={() => router.push('/dashboard/roles')}>Manage Roles</button>
-                    <button className="btn btn-sm" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' }} onClick={() => router.push('/dashboard/security')}>Security</button>
+
                 </div>
             </div>
 
@@ -202,7 +202,7 @@ function SuperAdminContent() {
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     {[
                         { label: 'Manage Roles', icon: Shield, href: '/dashboard/roles', color: '#6366f1' },
-                        { label: 'Network Security', icon: Wifi, href: '/dashboard/security', color: '#0ea5e9' },
+
                         { label: 'All Employees', icon: Users, href: '/dashboard/employees', color: '#10b981' },
                         { label: 'Audit Logs', icon: Database, href: '/dashboard/audit', color: '#f59e0b' },
                         { label: 'Run Payroll', icon: TrendingUp, href: '/dashboard/payroll', color: '#8b5cf6' },

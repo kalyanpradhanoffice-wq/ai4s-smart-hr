@@ -178,7 +178,7 @@ function EmployeeContent() {
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => router.push('/dashboard/leaves')}>Apply Leave</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => router.push('/dashboard/attendance-request')}>Attendance Request</button>
                     <button className="btn btn-primary btn-sm" onClick={handleDownloadPayslip} disabled={!myPayslip}>
                         <Download size={14} /> Download Payslip
                     </button>
@@ -240,7 +240,7 @@ function EmployeeContent() {
                 <div className="card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>My Leave History</h3>
-                        <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard/leaves')}>Apply →</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard/attendance-request?tab=history')}>View All →</button>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {myLeaves.length === 0 ? <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>No leave requests yet.</div> : (

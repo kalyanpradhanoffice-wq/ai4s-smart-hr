@@ -4,12 +4,12 @@ import { useApp } from '@/lib/AppContext';
 import { useState } from 'react';
 import { DEFAULT_ROLES, PERMISSIONS } from '@/lib/constants';
 import { getRoleMeta, can } from '@/lib/rbac';
-import { Building, Users, Shield, Wifi, TrendingUp, Settings, Activity, ChevronRight } from 'lucide-react';
+import { Building, Users, Shield, TrendingUp, Settings, Activity, ChevronRight, Clock, Search, Plus, Lock, CheckCircle, LayoutDashboard, ClipboardList } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 function AdminContent() {
     const router = useRouter();
-    const { currentUser, users, customRoles, leaveRequests, loans, salaryUpgrades, auditLog, securityConfig } = useApp();
+    const { currentUser, users, customRoles, leaveRequests, loans, salaryUpgrades, auditLog } = useApp();
 
     const canManage = can(currentUser, PERMISSIONS.MANAGE_ROLES, customRoles);
 
@@ -22,11 +22,10 @@ function AdminContent() {
     const allRoles = [...Object.values(DEFAULT_ROLES), ...customRoles];
     const quickLinks = [
         { label: 'Role Management', icon: Shield, href: '/dashboard/roles', desc: 'Manage roles & permissions', color: '#6366f1' },
-        { label: 'Network Security', icon: Wifi, href: '/dashboard/security', desc: 'Wi-Fi restriction settings', color: '#0ea5e9' },
         { label: 'Employee Directory', icon: Users, href: '/dashboard/employees', desc: `${users.length} employees`, color: '#10b981' },
         { label: 'Payroll Settings', icon: TrendingUp, href: '/dashboard/payroll', desc: 'Statutory & payroll config', color: '#8b5cf6' },
         { label: 'Audit Logs', icon: Activity, href: '/dashboard/audit', desc: `${auditLog.length} entries`, color: '#f59e0b' },
-        { label: 'Leave Policies', icon: Settings, href: '/dashboard/leaves', desc: 'Leave type configuration', color: '#ef4444' },
+        { label: 'Attendance Request', icon: ClipboardList, href: '/dashboard/attendance-request', desc: 'Manage your requests', color: '#ef4444' },
     ];
 
     return (
@@ -34,7 +33,7 @@ function AdminContent() {
             <div className="page-header">
                 <div>
                     <h1 className="page-title">Admin Control Hub</h1>
-                    <p className="page-subtitle">Manage roles, security, and workflows across the organization</p>
+                    <p className="page-subtitle">Manage roles, permissions, and workflows across the organization</p>
                 </div>
             </div>
 
@@ -44,7 +43,7 @@ function AdminContent() {
                     { label: 'Total Roles', value: allRoles.length, color: '#6366f1', href: '/dashboard/roles' },
                     { label: 'Custom Roles', value: customRoles.length, color: '#8b5cf6', href: '/dashboard/roles' },
                     { label: 'Pending Approvals', value: pendingApprovals.length, color: '#f59e0b', href: '/dashboard/approvals' },
-                    { label: 'Network Policy', value: securityConfig.wifiRestrictionEnabled ? 'ACTIVE' : 'OFF', color: securityConfig.wifiRestrictionEnabled ? '#10b981' : '#ef4444', href: '/dashboard/security' },
+                    { label: 'System Audit', value: auditLog.length, color: '#8b5cf6', href: '/dashboard/audit' },
                 ].map(s => (
                     <div key={s.label} className="stat-card"
                         onClick={() => router.push(s.href)}

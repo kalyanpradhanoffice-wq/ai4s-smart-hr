@@ -2,9 +2,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/lib/AppContext';
-import { isNetworkRestricted } from '@/lib/rbac';
+import { isLocationRestricted } from '@/lib/rbac';
 import { supabase } from '@/lib/supabase';
-import { Eye, EyeOff, Wifi, WifiOff, Shield, AlertCircle, X, Lock, Mail, ChevronRight } from 'lucide-react';
+import { Eye, EyeOff, Shield, AlertCircle, X, Lock, Mail, ChevronRight } from 'lucide-react';
 
 function LoginPage() {
     const router = useRouter();
@@ -17,48 +17,10 @@ function LoginPage() {
     const [isRegister, setIsRegister] = useState(false);
     const [name, setName] = useState('');
     const [designation, setDesignation] = useState('');
-    const [wifiModal, setWifiModal] = useState(false);
-    const [networkStatus, setNetworkStatus] = useState('checking');
-    const [currentIP, setCurrentIP] = useState(null);
-    const [isNetworkAllowed, setIsNetworkAllowed] = useState(null);
 
     useEffect(() => {
         if (currentUser) router.replace(getRoute(currentUser.role));
     }, [currentUser, router]);
-
-    // Detect current public IP on load and verify against allowed list
-    useEffect(() => {
-        async function detectIP() {
-            try {
-                // Fetch actual security config directly, as context might not be loaded if logged out
-                const { data: secData } = await supabase.from('security_config').select('*').eq('id', 'system_config').single();
-                const actualConfig = secData?.config;
-
-                const res = await fetch('https://api.ipify.org?format=json');
-                const data = await res.json();
-                if (data.ip) {
-                    setCurrentIP(data.ip);
-                    setNetworkStatus('detected');
-
-                    // Client-side visual verification (optional, purely for UI feedback)
-                    if (actualConfig?.wifiRestrictionEnabled && actualConfig?.allowedAccessPoints) {
-                        const verified = actualConfig.allowedAccessPoints.some(ap => {
-                            if (!ap.ip) return false;
-                            return data.ip.startsWith(ap.ip);
-                        });
-                        setIsNetworkAllowed(verified);
-                    } else {
-                        setIsNetworkAllowed(true); // If restriction is disabled, all networks are 'allowed'
-                    }
-                }
-            } catch (err) {
-                console.error('IP detection failed:', err);
-                setNetworkStatus('unverified');
-                setIsNetworkAllowed(false);
-            }
-        }
-        detectIP();
-    }, []);
 
     function getRoute(role) {
         const routes = {
@@ -94,13 +56,9 @@ function LoginPage() {
             return;
         }
 
-        const result = await login(email, password, currentIP);
+        const result = await login(email, password);
         if (!result.success) {
-            if (result.isRestricted) {
-                setError(`Unauthorized Network: Please connect to the designated Office Wi-Fi. (Detected IP: ${currentIP || 'Unknown'})`);
-            } else {
-                setError(result.error);
-            }
+            setError(result.error);
             setLoading(false);
             return;
         }
@@ -155,19 +113,6 @@ function LoginPage() {
                                 <h2 className="login-card-title">{isRegister ? 'Create Account' : 'Welcome Back'}</h2>
                                 <p className="login-card-sub">{isRegister ? 'Join your enterprise workspace' : 'Sign in to your workspace'}</p>
                             </div>
-                        </div>
-
-                        <div className="login-network-status">
-                            {networkStatus === 'checking' ? (
-                                <div className="network-badge checking"><div className="spinner" style={{ width: 12, height: 12 }} /> Identifying network...</div>
-                            ) : networkStatus === 'detected' ? (
-                                <div className={`network-badge ${isNetworkAllowed ? 'allowed' : 'restricted'}`}>
-                                    {isNetworkAllowed ? <Wifi size={13} /> : <WifiOff size={13} />}
-                                    {isNetworkAllowed ? 'Verified Office Network' : 'Guest / Unknown Network'}
-                                </div>
-                            ) : (
-                                <div className="network-badge restricted"><WifiOff size={13} /> Network unverified</div>
-                            )}
                         </div>
 
                         <form onSubmit={handleSubmit} className="login-form">
@@ -234,13 +179,11 @@ function LoginPage() {
 
                         <p style={{ textAlign: 'center', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 16 }}>
                             <Shield size={11} style={{ display: 'inline', marginRight: 4 }} />
-                            Protected by enterprise-grade security. Network access policy enforced.
+                            Protected by enterprise-grade security. Location verification enforced.
                         </p>
                     </div>
                 </div>
             </div>
-
-            {/* Modal removed as per user request */}
 
             <style>{`
         .login-root { min-height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; padding: 20px; }
@@ -267,11 +210,7 @@ function LoginPage() {
         .login-card-icon { width: 44px; height: 44px; background: var(--gradient-brand); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: white; box-shadow: var(--shadow-glow-sm); flex-shrink: 0; }
         .login-card-title { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; margin: 0; }
         .login-card-sub { color: var(--text-muted); font-size: 0.82rem; margin: 0; }
-        .login-network-status { margin-bottom: 20px; }
-        .network-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: var(--radius-full); font-size: 0.72rem; font-weight: 600; }
-        .network-badge.checking { background: rgba(6,182,212,0.1); color: #22d3ee; border: 1px solid rgba(6,182,212,0.2); }
-        .network-badge.restricted { background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
-        .network-badge.allowed { background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
+
         .login-form { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
         @keyframes animate-scale-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
         .animate-scale-in { animation: animate-scale-in 0.25s ease; }

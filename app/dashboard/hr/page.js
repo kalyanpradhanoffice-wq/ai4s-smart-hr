@@ -104,7 +104,7 @@ function HRContent() {
             <div className="grid-4" style={{ marginBottom: 20 }}>
                 {[
                     { label: 'Total Employees', value: users.length, icon: Users, color: '#6366f1', sub: 'All departments', href: '/dashboard/employees' },
-                    { label: 'On Leave Today', value: onLeave, icon: Clock, color: '#f59e0b', sub: 'Approved leaves', href: '/dashboard/leaves' },
+                    { label: 'On Leave Today', value: onLeave, icon: Clock, color: '#f59e0b', sub: 'Approved leaves', href: '/dashboard/attendance-request' },
                     { label: 'Pending Approvals', value: pendingTotal, icon: AlertTriangle, color: '#ef4444', sub: 'Non-leave requests', href: '/dashboard/approvals' },
                     { label: 'Payroll (Total)', value: `₹${(totalPayroll / 1000).toFixed(0)}K`, icon: DollarSign, color: '#10b981', sub: 'Net disbursed', href: '/dashboard/payroll' },
                 ].map(s => (
@@ -131,7 +131,7 @@ function HRContent() {
             {/* Sub-Approvals Row */}
             <div className="grid-3" style={{ marginBottom: 28 }}>
                 {[
-                    { label: 'Attendance Corrections', value: pendingRegs, icon: Edit, color: '#6366f1', href: '/dashboard/attendance?tab=regs' },
+                    { label: 'Attendance Corrections', value: pendingRegs, icon: Edit, color: '#6366f1', href: '/dashboard/attendance-request?tab=requests' },
                     { label: 'Loan Requests', value: pendingLoans, icon: CreditCard, color: '#8b5cf6', href: '/dashboard/loans' },
                     { label: 'Salary Upgrades', value: pendingUpgrades, icon: TrendingUp, color: '#ec4899', href: '/dashboard/payroll?tab=upgrades' },
                 ].map(s => (
@@ -281,7 +281,7 @@ function HRContent() {
             <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                     <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Recent Leave Requests</h3>
-                    <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard/leaves')}>View All →</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard/attendance-request?tab=history')}>View All →</button>
                 </div>
                 <div className="table-wrapper" style={{ border: 'none', boxShadow: 'none' }}>
                     <table className="data-table">
